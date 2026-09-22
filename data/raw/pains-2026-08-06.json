@@ -1,0 +1,628 @@
+{
+  "agent": "02-pains",
+  "collected_at": "2026-08-07T09:38:49.055Z",
+  "files_processed": 7,
+  "records": [
+    {
+      "source_url": "https://zvonobot.ru/blog/avtomatizatsiya-biznesa-chto-eto-tseli-i-zadachi/",
+      "title": "Автоматизация бизнеса: что это такое, цели и задачи + примеры!",
+      "pain_quote": "Крупные и небольшие компании постоянно ищут возможность увеличить эффективность работы и привлечь новых клиентов",
+      "audience_segment": "ecommerce",
+      "topic_cluster": "automation-problems",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:48.950Z"
+    },
+    {
+      "source_url": "https://bpium.ru/blog/s-kakimi-problemami-vy-stolknetes-pri-avtomatizacii-biznes-processov",
+      "title": "С какими проблемами вы столкнетесь при автоматизации ...",
+      "pain_quote": "# С какими проблемами вы столкнетесь при автоматизации бизнес процессов",
+      "audience_segment": "enterprise",
+      "topic_cluster": "automation-problems",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:48.961Z"
+    },
+    {
+      "source_url": "https://www.youtube.com/watch?v=l5qDmkFPhUk",
+      "title": "Автоматизация бизнеса: как выбрать нужные AI-решения и ...",
+      "pain_quote": "Вебинар для тех, кто хочет использовать современные инструменты автоматизации и AI без команды разработчиков и бюджета корпорации.",
+      "audience_segment": "ecommerce",
+      "topic_cluster": "automation-problems",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:48.962Z"
+    },
+    {
+      "source_url": "https://biz360.ru/materials/zhadnost-nevezhestvo-len-10-smertnykh-grekhov-pri-avtomatizatsii-biznesa/",
+      "title": "10 смертных грехов при автоматизации бизнеса",
+      "pain_quote": "Но почему тогда многие компании малого и среднего бизнеса либо не получают от неё ожидаемого эффекта, либо вовсе сталкиваются с провалом",
+      "audience_segment": "ecommerce",
+      "topic_cluster": "automation-problems",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:48.964Z"
+    },
+    {
+      "source_url": "https://infostart.ru/pm/2379476/",
+      "title": "Автоматизация бизнеса: основные проблемы при внедрении 1С на ...",
+      "pain_quote": "# [Автоматизация бизнеса: основные проблемы при внедрении 1С на предприятии](https://infostart",
+      "audience_segment": "smb",
+      "topic_cluster": "automation-problems",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:48.965Z"
+    },
+    {
+      "source_url": "https://sbercrm.com/blog/business/tpost/esbkxg5mu1-instrumenti-avtomatizatsii-biznesa?amp=true",
+      "title": "Автоматизация бизнеса: что это такое и какие инструменты ...",
+      "pain_quote": "> Владельцы небольших предприятий часто сталкиваются с дилеммой: выполнять рутинные операции вручную или инвестировать в автоматизацию",
+      "audience_segment": "enterprise",
+      "topic_cluster": "automation-problems",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:48.966Z"
+    },
+    {
+      "source_url": "https://astanahub.com/ru/blog/6-problem-v-biznese-s-kotorymi-stalkivaetsia-kazhdyi-predprinimatel-pri-avtomatizatsii",
+      "title": "6 проблем в бизнесе, с которыми сталкивается каждый ...",
+      "pain_quote": "6 проблем в бизнесе, с которыми сталкивается каждый предприниматель при автоматизации6 проблем в бизнесе, с которыми сталкивается каждый предприниматель при автоматизации6 проблем в бизнесе, с которыми сталкивается каждый предприниматель при автоматизации",
+      "audience_segment": "smb",
+      "topic_cluster": "automation-problems",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:48.969Z"
+    },
+    {
+      "source_url": "https://www.ttk-rus.ru/blog/problemy-avtomatizatsii-proizvodstva/",
+      "title": "Проблемы автоматизации производства: задачи, решения и ...",
+      "pain_quote": "# Проблемы автоматизации производства: задачи, решения и пути оптимизации",
+      "audience_segment": "smb",
+      "topic_cluster": "automation-problems",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:48.969Z"
+    },
+    {
+      "source_url": "https://www.sap.com/central-asia-caucasus/resources/what-is-process-automation",
+      "title": "Автоматизация процессов: ключ к эффективности",
+      "pain_quote": "Задачи охватывают группы, системы и источники данных, и даже простые процессы основаны на сочетании шагов, выполняемых вручную, и разрозненных инструментов",
+      "audience_segment": "smb",
+      "topic_cluster": "automation-problems",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:48.971Z"
+    },
+    {
+      "source_url": "https://incrussia.ru/share/avtomatizaciya-malogo-biznesa/",
+      "title": "Доступна ли малому бизнесу автоматизация процессов и зачем ...",
+      "pain_quote": "Существует распространенное мнение, что автоматизировать бизнес-процессы могут позволить себе только средние и крупные компании, тогда как небольшим предприятиям попросту не хватает ресурсов, чтобы приобретать и поддерживать сервисы цифровизации",
+      "audience_segment": "enterprise",
+      "topic_cluster": "automation-problems",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:48.972Z"
+    },
+    {
+      "source_url": "https://www.gptunnel.ru/ru/blog/chatgpt-help-for-business",
+      "title": "Как Chat GPT может помочь Вашему бизнесу?",
+      "pain_quote": "Помимо увеличения числа потенциальных клиентов и повышения удовлетворенности клиентов, вы можете сократить время, которое ваша команда тратит на написание текстов, чтобы сосредоточиться на других областях бизнеса, требующих стратегического мышления и решения сложных задач",
+      "audience_segment": "smb",
+      "topic_cluster": "chatgpt",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:48.977Z"
+    },
+    {
+      "source_url": "https://chatgpt.com/ru-RU/business/business-plan/",
+      "title": "ChatGPT для бизнеса, на базе самых передовых моделей OpenAI",
+      "pain_quote": "Codex работает со всей вашей кодовой базой, чтобы реализовывать функции, исправлять ошибки и возвращать проверенные изменения, которые вы можете просмотреть, отредактировать или которыми можете поделиться с вашей командой",
+      "audience_segment": "enterprise",
+      "topic_cluster": "chatgpt",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:48.978Z"
+    },
+    {
+      "source_url": "https://www.youtube.com/watch?v=nkmz-Z5PRL4",
+      "title": "ChatGPT Business: Как компании растут с помощью AI | Бесплатный ...",
+      "pain_quote": "48:06 Проблемы профессионального выгорания и его последствия",
+      "audience_segment": "enterprise",
+      "topic_cluster": "chatgpt",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:48.980Z"
+    },
+    {
+      "source_url": "https://help.openai.com/ru-ru/articles/11391654-chatgpt-business-release-notes",
+      "title": "ChatGPT Business — Примечания к выпуску",
+      "pain_quote": "ChatGPT Работа — это агент для длительных и более сложных задач",
+      "audience_segment": "enterprise",
+      "topic_cluster": "chatgpt",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:48.983Z"
+    },
+    {
+      "source_url": "https://twin24.ai/company/articles/chatgpt-dlya-biznesa/",
+      "title": "Как использовать ChatGPT для российского бизнеса",
+      "pain_quote": "Модель обучается на больших объемах текстовых данных, что позволяет ей вычислять различные языковые шаблоны, структуры и определять контекст",
+      "audience_segment": "smb",
+      "topic_cluster": "chatgpt",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:48.984Z"
+    },
+    {
+      "source_url": "https://vc.ru/life/1953555-chatgpt-4-5-za-200-evro-v-mesyac-opyt-ispolzovaniya",
+      "title": "200 евро в месяц за ChatGPT 4.5: мой субъективный опыт",
+      "pain_quote": "Признаюсь, прежде чем оформить подписку за ~200 € в месяц на ChatGPT Turbo (она же ChatGPT Pro), я рассчитывал на небольшое чудо",
+      "audience_segment": "ecommerce",
+      "topic_cluster": "chatgpt",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:48.985Z"
+    },
+    {
+      "source_url": "https://www.kt-team.ru/blog/chatgpt-for-business-automation",
+      "title": "Внедрение ChatGPT в бизнес: автоматизация, рост ... - KT.Team",
+      "pain_quote": "| Копирование чужих решений | Не работает в вашей среде | Адаптировать под процессы и культуру |",
+      "audience_segment": "ecommerce",
+      "topic_cluster": "chatgpt",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:48.985Z"
+    },
+    {
+      "source_url": "https://xn--365-jed8a3a.xn--p1ai/ai-business",
+      "title": "ChatGPT в бизнесе: экономия времени, ресурсы и прокачка ...",
+      "pain_quote": "Запросить финальные смыслы: набор конкретных кейсов, как можно было бы эту проблему решить, с тем, что там клиенты не информированы",
+      "audience_segment": "smb",
+      "topic_cluster": "chatgpt",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:48.986Z"
+    },
+    {
+      "source_url": "https://www.youtube.com/watch?v=yHRF_c_3e4M",
+      "title": "ChatGPT для БИЗНЕСА. Лайфхаки Амазон предпринимателя",
+      "pain_quote": "# ChatGPT для БИЗНЕСА. Лайфхаки Амазон предпринимателя\n0:48\n\n5:51\n\n8:58\n\n9:58\n\n0:48\n\n5:51\n\n8:58\n\n9:58\n\nSync to video time\n\n💰 Скидка на Helium10 до 50% [[https://sellerinsiders.training/50off](https://sellerinsiders.training/50off)...](https://www.youtube.com/redirect?event=video_description&redir_token=QUM4Zm9rVGZ6S2liRWRIcXh6djZSMmYzbWFHR3xBR3JiS2FrNHBPTklqTk5GSGRvM01TaXBmSks1cmpjM2RDT3BwbVNkOWROZmw1aDQwTFA2T0dyTGx0RE5iU3pTT2NxMC1lLTJMSUlyaUNiLVJmZmw2VHQyTUdiaGVYeDE1em4t&q=https%3A%2F%2Fseller",
+      "audience_segment": "ecommerce",
+      "topic_cluster": "chatgpt",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:48.987Z"
+    },
+    {
+      "source_url": "https://envybox.io/blog/avtomatizacija-internet-magazina/",
+      "title": "Поэтапная автоматизация интернет-магазина с нуля",
+      "pain_quote": "- Какие проблемы решит автоматизация интернет-магазина",
+      "audience_segment": "ecommerce",
+      "topic_cluster": "ecommerce",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:48.994Z"
+    },
+    {
+      "source_url": "https://gendalf.ru/news/marketing/avtomatizatsiya-internetmagazina-kak-nav/?srsltid=AfmBOoojje2Wcs4fod-89MjiI1sCWQEOeQukuMNwopWlPM0Dpir3ssox",
+      "title": "Автоматизация интернет-магазина: интеграции, 1С, процессы ...",
+      "pain_quote": "# Автоматизация интернет-магазина: как навести порядок и начать зарабатывать больше",
+      "audience_segment": "ecommerce",
+      "topic_cluster": "ecommerce",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:48.995Z"
+    },
+    {
+      "source_url": "https://sales-generator.ru/blog/avtomatizatsiya-internet-magazina/",
+      "title": "Автоматизация интернет-магазина: как все сделать ...",
+      "pain_quote": "[Проблемы, которые решает автоматизация бизнес-процессов интернет-магазина](https://sales-generator",
+      "audience_segment": "ecommerce",
+      "topic_cluster": "ecommerce",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:48.998Z"
+    },
+    {
+      "source_url": "https://winner-bagz.ru/news/avtomatizatsiya-biznesa-v-internet-magazine/",
+      "title": "Автоматизация бизнеса в интернет-магазине - Bags Studio",
+      "pain_quote": "В этот момент экономичность становится чрезвычайно важной, и единственно правильным решением этой проблемы является автоматизация",
+      "audience_segment": "ecommerce",
+      "topic_cluster": "ecommerce",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:48.998Z"
+    },
+    {
+      "source_url": "https://scanport.ru/blog/avtomatizacziya-torgovli-kakie-zadachi-reshaet-i-chto-dlya-etogo-ponadobitsya/",
+      "title": "Автоматизация торговли: какие задачи решает, и что для этого ...",
+      "pain_quote": "Это освобождает время сотрудников, позволяет им уделять больше внимания обслуживанию клиентов, помогает сократить очереди",
+      "audience_segment": "enterprise",
+      "topic_cluster": "ecommerce",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:48.999Z"
+    },
+    {
+      "source_url": "https://oborot.ru/forum/kakie-problemy-ostalis-v-e-commerce-kotorye-ne-avtomatizirovany-i37705-3.html",
+      "title": "Какие проблемы остались в e-commerce, которые не ...",
+      "pain_quote": "# Какие проблемы остались в e-commerce, которые не автоматизированы",
+      "audience_segment": "ecommerce",
+      "topic_cluster": "ecommerce",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:49.000Z"
+    },
+    {
+      "source_url": "https://www.tadviser.ru/index.php/%D0%A1%D1%82%D0%B0%D1%82%D1%8C%D1%8F:%D0%90%D0%B2%D1%82%D0%BE%D0%BC%D0%B0%D1%82%D0%B8%D0%B7%D0%B0%D1%86%D0%B8%D1%8F_%D1%8D%D0%BB%D0%B5%D0%BA%D1%82%D1%80%D0%BE%D0%BD%D0%BD%D0%BE%D0%B9_%D1%82%D0%BE%D1%80%D0%B3%D0%BE%D0%B2%D0%BB%D0%B8._%D0%9A%D0%B0%D0%BA%D0%B8%D0%B5_%D0%BF%D1%80%D0%BE%D0%B1%D0%BB%D0%B5%D0%BC%D1%8B_%D0%B2%D1%81%D1%82%D1%80%D0%B5%D1%87%D0%B0%D1%8E%D1%82%D1%81%D1%8F_%D0%BD%D0%B0%D0%B8%D0%B1%D0%BE%D0%BB%D0%B5%D0%B5_%D1%87%D0%B0%D1%81%D1%82%D0%BE",
+      "title": "Автоматизация электронной торговли. Какие проблемы ...",
+      "pain_quote": "Какие проблемы встречаются наиболее часто",
+      "audience_segment": "enterprise",
+      "topic_cluster": "ecommerce",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:49.001Z"
+    },
+    {
+      "source_url": "https://mwi.me/blog/avtomatizatsiya-internet-magazina/",
+      "title": "Автоматизация интернет магазина | Инструкция, учет товаров, обзор ...",
+      "pain_quote": "Кроме того, менеджеры большую часть времени и сил тратят на самостоятельное составление с помощью примитивных программ или вручную счетов, накладных, договоров и других первичных неизбежных документов",
+      "audience_segment": "ecommerce",
+      "topic_cluster": "ecommerce",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:49.002Z"
+    },
+    {
+      "source_url": "https://online-kassa.ru/blog/pochemu-ne-idut-prodazhi-4-tipichnyh-problemy-magazina-kotorye-tormozyat-torgovlyu/",
+      "title": "4 типичных проблемы магазина, которые тормозят торговлю",
+      "pain_quote": "[Почему не идут продажи: 4 типичных проблемы магазина, которые тормозят торговлю](https://online-kassa",
+      "audience_segment": "ecommerce",
+      "topic_cluster": "ecommerce",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:49.005Z"
+    },
+    {
+      "source_url": "https://delovoymir.biz/pravilnaya-avtomatizaciya-internet-torgovli-s-poshagovoy-instrukciey-i-primerami.html",
+      "title": "Правильная автоматизация интернет-торговли с ...",
+      "pain_quote": "Объясняем, из каких этапов состоит большой процесс автоматизации интернет-торговли, и перечисляем возможности, которыми может воспользоваться современный предприниматель",
+      "audience_segment": "ecommerce",
+      "topic_cluster": "ecommerce",
+      "platform": "other",
+      "collected_at": "2026-08-07T09:38:49.005Z"
+    },
+    {
+      "source_url": "https://habr.com/ru/companies/timeweb/articles/952480/",
+      "title": "Топ-10 нейросетей для бизнеса в 2025 году",
+      "pain_quote": "Проблема совершенно в другом: сервисов стало так много, что бедный чёрт уже давно сломал себе ногу, и становится всё труднее понять, какой инструмент выбрать",
+      "audience_segment": "enterprise",
+      "topic_cluster": "habr-ii",
+      "platform": "habr",
+      "collected_at": "2026-08-07T09:38:49.011Z"
+    },
+    {
+      "source_url": "https://habr.com/ru/articles/926580/",
+      "title": "Как внедрить нейросети в бизнес: 10 шагов для ...",
+      "pain_quote": "ИИ для бизнеса — это доступ к платформам, позволяющим использовать десятки AI моделей для аналитики, генерации контента, автоматизации документооборота и поддержки управленческих решений, без сложной интеграции и с легальной оплатой в рублях",
+      "audience_segment": "enterprise",
+      "topic_cluster": "habr-ii",
+      "platform": "habr",
+      "collected_at": "2026-08-07T09:38:49.012Z"
+    },
+    {
+      "source_url": "https://habr.com/ru/articles/945802/",
+      "title": "Автоматизация бизнеса с ИИ: где его стоит применять, ...",
+      "pain_quote": "В этой статье я предлагаю обсудить, в каких сферах от «текущего ИИ» есть польза, а в каких — нет, а также поговорить о тех деформациях и проблемах, которые создает новая технология для бизнеса",
+      "audience_segment": "enterprise",
+      "topic_cluster": "habr-ii",
+      "platform": "habr",
+      "collected_at": "2026-08-07T09:38:49.013Z"
+    },
+    {
+      "source_url": "https://habr.com/ru/companies/croc/articles/863748/",
+      "title": "10 лучших бизнес‑идей на основе ИИ на 2025 год",
+      "pain_quote": "Системы на базе ИИ могут анализировать медицинские данные, включая снимки, генетическую информацию и историю болезни, чтобы выявлять заболевания на ранних стадиях и с большей точностью",
+      "audience_segment": "enterprise",
+      "topic_cluster": "habr-ii",
+      "platform": "habr",
+      "collected_at": "2026-08-07T09:38:49.014Z"
+    },
+    {
+      "source_url": "https://habr.com/ru/companies/intervolga/articles/958400/",
+      "title": "ИИ для бизнеса: как понять что он нужен, где ...",
+      "pain_quote": "Для других — лишь модный хайп, за которым вскоре последует разочарование, как после пузыря доткомов",
+      "audience_segment": "enterprise",
+      "topic_cluster": "habr-ii",
+      "platform": "habr",
+      "collected_at": "2026-08-07T09:38:49.014Z"
+    },
+    {
+      "source_url": "https://habr.com/ru/articles/899838/",
+      "title": "ИИ и трансформация бизнес-процессов: методологии и ...",
+      "pain_quote": "Речь идет о ментальных установках, страхах и заблуждениях – от боязни технологий до недоверия к алгоритмам – которые могут тормозить прогресс",
+      "audience_segment": "enterprise",
+      "topic_cluster": "habr-ii",
+      "platform": "habr",
+      "collected_at": "2026-08-07T09:38:49.016Z"
+    },
+    {
+      "source_url": "https://habr.com/ru/articles/1014036/",
+      "title": "И снова ИИ, как я из предпринимателя стал «мечтателем",
+      "pain_quote": "Магией обуздать и получить ответы на те вопросы, к которым приходят через ошибки и кучу потраченного времени",
+      "audience_segment": "enterprise",
+      "topic_cluster": "habr-ii",
+      "platform": "habr",
+      "collected_at": "2026-08-07T09:38:49.016Z"
+    },
+    {
+      "source_url": "https://habr.com/ru/articles/898952/",
+      "title": "7 AI кейсов для бизнеса, которые я бы точно ...",
+      "pain_quote": "Человеческим языком общаться с различными сервисами через их API, но без сложностей с разработкой и интеграцией — как USB формат для устройств](https://habrastorage",
+      "audience_segment": "enterprise",
+      "topic_cluster": "habr-ii",
+      "platform": "habr",
+      "collected_at": "2026-08-07T09:38:49.017Z"
+    },
+    {
+      "source_url": "https://career.habr.com/courses/menedzhment/ai",
+      "title": "ТОП онлайн-курсов по искусственному интеллекту",
+      "pain_quote": "Антикризисный менеджер: ИИ-инструменты для управления рисками",
+      "audience_segment": "enterprise",
+      "topic_cluster": "habr-ii",
+      "platform": "habr",
+      "collected_at": "2026-08-07T09:38:49.019Z"
+    },
+    {
+      "source_url": "https://habr.com/ru/companies/bft/articles/958388/",
+      "title": "Искусственный интеллект в консалтинге",
+      "pain_quote": "Сегодня искусственный интеллект (далее — ИИ) проникает во все сферы бизнеса, беря на себя всё больше задач — от анализа данных до оптимизации процессов",
+      "audience_segment": "enterprise",
+      "topic_cluster": "habr-ii",
+      "platform": "habr",
+      "collected_at": "2026-08-07T09:38:49.020Z"
+    },
+    {
+      "source_url": "https://habr.com/ru/articles/962852/",
+      "title": "Полное руководство по n8n. Часть 1: Знакомство и ...",
+      "pain_quote": "Сама платформа появилась в 2019 году, но наибольшую популярность приобрела в 23-24 годах, благодаря интеграциями с различными ИИ сервисами",
+      "audience_segment": "enterprise",
+      "topic_cluster": "habr-n8n",
+      "platform": "habr",
+      "collected_at": "2026-08-07T09:38:49.024Z"
+    },
+    {
+      "source_url": "https://habr.com/ru/companies/otus/articles/947314/",
+      "title": "Как быстро собрать прототип AI-продукта на n8n.io",
+      "pain_quote": "Уход с облака в n8n в свою инсталляцию принес проблемы, часть интеграций отвалилась, например, с сервисами Google, но с учетом текущей ситуации, я решил сразу строить решение на базе российских сервисов, что правда добавило немало проблем с их подключением",
+      "audience_segment": "enterprise",
+      "topic_cluster": "habr-n8n",
+      "platform": "habr",
+      "collected_at": "2026-08-07T09:38:49.025Z"
+    },
+    {
+      "source_url": "https://habr.com/ru/companies/sovcombank_technologies/articles/1027594/",
+      "title": "Как перестать писать ТЗ и начать рисовать ноды",
+      "pain_quote": "У меня большой рабочий опыт в интеграциях и выстраивании рабочих процессов",
+      "audience_segment": "enterprise",
+      "topic_cluster": "habr-n8n",
+      "platform": "habr",
+      "collected_at": "2026-08-07T09:38:49.026Z"
+    },
+    {
+      "source_url": "https://u.habr.com/nBexG",
+      "title": "Курс ИИ-агенты и n8n: обучение с нуля без кода",
+      "pain_quote": "n8n — это low-code платформа для создания сложных автоматизаций без глубоких знаний программирования",
+      "audience_segment": "ecommerce",
+      "topic_cluster": "habr-n8n",
+      "platform": "habr",
+      "collected_at": "2026-08-07T09:38:49.026Z"
+    },
+    {
+      "source_url": "https://habr.com/ru/companies/datafeel/articles/923082/",
+      "title": "Почему n8n важен в автоматизации бизнеса: примеры ...",
+      "pain_quote": "Рынок автоматизации процессов сейчас переживает качественное обновление — компании самых разных масштабов стремятся минимизировать ручную работу, ускорить процессы, снизить число ошибок в цепочках передачи данных между системами и повысить управляемость бизнес-процессов в целом",
+      "audience_segment": "enterprise",
+      "topic_cluster": "habr-n8n",
+      "platform": "habr",
+      "collected_at": "2026-08-07T09:38:49.027Z"
+    },
+    {
+      "source_url": "https://habr.com/ru/articles/932984/",
+      "title": "Разворачиваем n8n в своём облаке",
+      "pain_quote": "Большинство туториалов и видео, которые сейчас есть про n8n рассказывают про развёртывание инструмента на локальной машине и не учитывают базовые потребности при реальном внедрении:",
+      "audience_segment": "enterprise",
+      "topic_cluster": "habr-n8n",
+      "platform": "habr",
+      "collected_at": "2026-08-07T09:38:49.028Z"
+    },
+    {
+      "source_url": "https://habr.com/ru/articles/939092/",
+      "title": "Почему ИИ не смог заменить меня в n8n, но стал ...",
+      "pain_quote": "Сложные воркфлоу превращаются в лабиринт из нод, где каждая требует тонкой настройки десятков полей",
+      "audience_segment": "enterprise",
+      "topic_cluster": "habr-n8n",
+      "platform": "habr",
+      "collected_at": "2026-08-07T09:38:49.028Z"
+    },
+    {
+      "source_url": "https://habr.com/ru/companies/flowwow/articles/1032120/",
+      "title": "как мы собрали RAG на n8n и сократили расходы в 5 ...",
+      "pain_quote": "На дату публикации этой статьи в нашем корпоративном мессенджере внедрено больше 270 автоматизаций, и это далеко не конец",
+      "audience_segment": "enterprise",
+      "topic_cluster": "habr-n8n",
+      "platform": "habr",
+      "collected_at": "2026-08-07T09:38:49.029Z"
+    },
+    {
+      "source_url": "https://habr.com/ru/companies/otus/articles/1024468/",
+      "title": "Автоматизация процессов на open source — n8n и Ollama",
+      "pain_quote": "В этом материале я расскажу о собственной практике использования инструмента n8n, а также затрону возможности использования больших языковых моделей (LLM), установленных локально с помощью Ollama для [создания AI-агентов](https://otus",
+      "audience_segment": "enterprise",
+      "topic_cluster": "habr-n8n",
+      "platform": "habr",
+      "collected_at": "2026-08-07T09:38:49.031Z"
+    },
+    {
+      "source_url": "https://habr.com/ru/articles/1061046/",
+      "title": "обучение n8n, ИИ-агентам с нуля",
+      "pain_quote": "Компании больше не спрашивают, стоит ли внедрять ИИ, они уже считают, сколько на этом сэкономят",
+      "audience_segment": "enterprise",
+      "topic_cluster": "habr-n8n",
+      "platform": "habr",
+      "collected_at": "2026-08-07T09:38:49.032Z"
+    },
+    {
+      "source_url": "https://vc.ru/yoomoney/2775552-avtomatizatsiya-biznesa-kazhdyy-tretyy-predprinimatel-zhaleet-o-zaderzhke",
+      "title": "Каждый третий предприниматель жалеет, что не ...",
+      "pain_quote": "При этом 16% компаний по-прежнему ведут все процессы вручную",
+      "audience_segment": "ecommerce",
+      "topic_cluster": "vc-automation",
+      "platform": "vc.ru",
+      "collected_at": "2026-08-07T09:38:49.036Z"
+    },
+    {
+      "source_url": "https://vc.ru/id5673902/2730683-avtomatizatsiya-malogo-biznesa-v-2026-godu-top-3-resheniya",
+      "title": "Топ 3 варианта для автоматизации малого бизнеса в ...",
+      "pain_quote": "Несмотря на то, что с каждым годом множество компаний используют всё больше различных средств автоматизации, все равно остаётся множество мест, где её нет, или она используется частично",
+      "audience_segment": "enterprise",
+      "topic_cluster": "vc-automation",
+      "platform": "vc.ru",
+      "collected_at": "2026-08-07T09:38:49.036Z"
+    },
+    {
+      "source_url": "https://vc.ru/neyronatela/2976429-avtomatizatsiya-biznesa-kak-zarabotat-na-neyrosetyakh-i-ii",
+      "title": "9 из 10 компаний хотят автоматизацию. Умеют",
+      "pain_quote": "Получила систему, которая не работала так, как нужно",
+      "audience_segment": "smb",
+      "topic_cluster": "vc-automation",
+      "platform": "vc.ru",
+      "collected_at": "2026-08-07T09:38:49.037Z"
+    },
+    {
+      "source_url": "https://vc.ru/promo/30819-avtomatizaciya-malogo-biznesa",
+      "title": "Автоматизация малого бизнеса — Промо на ...",
+      "pain_quote": "Большинство мелких предпринимателей — те, кто работает в розничной торговле и общепите и раньше не имел касс, — перейдут на онлайн-кассы не позже 1 июля 2018 года",
+      "audience_segment": "ecommerce",
+      "topic_cluster": "vc-automation",
+      "platform": "vc.ru",
+      "collected_at": "2026-08-07T09:38:49.038Z"
+    },
+    {
+      "source_url": "https://vc.ru/id1701990/1667052-top-10-servisov-dlya-avtomatizacii-biznesa-v-rossii-ekonomiya-vremeni-i-resursov",
+      "title": "Топ-10 сервисов для автоматизации бизнеса в России",
+      "pain_quote": "ЮКасса поддерживает интеграцию с большинством популярных платформ, обеспечивая удобство и простоту обработки транзакций",
+      "audience_segment": "ecommerce",
+      "topic_cluster": "vc-automation",
+      "platform": "vc.ru",
+      "collected_at": "2026-08-07T09:38:49.039Z"
+    },
+    {
+      "source_url": "https://vc.ru/id6013274/2985258-avtomatizatsiya-dlya-malogo-biznesa-ubiraem-ruchnuyu-rutinu",
+      "title": "Малому бизнесу не нужна сложная автоматизация. Ему ...",
+      "pain_quote": "# Малому бизнесу не нужна сложная автоматизация",
+      "audience_segment": "smb",
+      "topic_cluster": "vc-automation",
+      "platform": "vc.ru",
+      "collected_at": "2026-08-07T09:38:49.039Z"
+    },
+    {
+      "source_url": "https://vc.ru/id5987930/2951672-priznaki-neobkhodimosti-avtomatizatsii-biznesa",
+      "title": "3 признака, что вашему бизнесу СРОЧНО нужна ...",
+      "pain_quote": "1 Вы тонете в рутине Заполняете одни и те же документы, сверяете данные вручную, тратите часы на то, что можно сделать за 2 клика",
+      "audience_segment": "smb",
+      "topic_cluster": "vc-automation",
+      "platform": "vc.ru",
+      "collected_at": "2026-08-07T09:38:49.040Z"
+    },
+    {
+      "source_url": "https://vc.ru/services/2202250-kak-genspark-pomogaet-malomu-biznesu",
+      "title": "Как GenSpark изменяет работу малого бизнеса",
+      "pain_quote": "** Очаги возгорания на складе локализованы, «большинство товаров не пострадало», [сообщила](https://api",
+      "audience_segment": "smb",
+      "topic_cluster": "vc-automation",
+      "platform": "vc.ru",
+      "collected_at": "2026-08-07T09:38:49.040Z"
+    },
+    {
+      "source_url": "https://vc.ru/ai/2155938-neyroseti-dlya-biznesa-7-instrumentov",
+      "title": "Нейросеть для бизнеса: 7 инструментов для ...",
+      "pain_quote": "СигмаЧат значительно упрощает взаимодействие с клиентами, автоматизируя рутинные коммуникации и позволяя сосредоточиться на более сложных задачах",
+      "audience_segment": "smb",
+      "topic_cluster": "vc-automation",
+      "platform": "vc.ru",
+      "collected_at": "2026-08-07T09:38:49.041Z"
+    },
+    {
+      "source_url": "https://vc.ru/id5178272/2726456-avtomatizatsiya-biznesa-kak-dostich-konkurentnogo-preimushchestva",
+      "title": "Автоматизация бизнеса: от необходимости к ...",
+      "pain_quote": "Проблема в том, что предприниматели становятся узким местом собственного бизнеса",
+      "audience_segment": "smb",
+      "topic_cluster": "vc-automation",
+      "platform": "vc.ru",
+      "collected_at": "2026-08-07T09:38:49.042Z"
+    },
+    {
+      "source_url": "https://vc.ru/ai/2786565-iskusstvennyy-intellekt-v-biznese-novaya-norma-dlya-vsekh",
+      "title": "Искусственный интеллект в бизнесе: почему это уже не ...",
+      "pain_quote": "Я не пишу сложный код, не сижу ночами над архитектурой систем и не считаю себя технарём в классическом смысле",
+      "audience_segment": "ecommerce",
+      "topic_cluster": "vc-ii",
+      "platform": "vc.ru",
+      "collected_at": "2026-08-07T09:38:49.047Z"
+    },
+    {
+      "source_url": "https://vc.ru/ai/2789052-vnedrenie-ii-v-biznes-rezultaty-issledovaniya",
+      "title": "Результаты исследования внедрения ИИ в ...",
+      "pain_quote": "Однако масштаб информационного шума вокруг ИИ делает всё более сложным главный аналитический вопрос: **“Какие технологии действительно формируют новые бизнес-процессы, а какие остаются частью маркетинговой риторики",
+      "audience_segment": "enterprise",
+      "topic_cluster": "vc-ii",
+      "platform": "vc.ru",
+      "collected_at": "2026-08-07T09:38:49.047Z"
+    },
+    {
+      "source_url": "https://vc.ru/dev/2744189-top-10-ai-studiy-rossii-luchshie-razrabotchiki-ii-resheniy",
+      "title": "Лучшие AI-студии России: топ-10 интеграторов и ...",
+      "pain_quote": "- Создают enterprise-продукты в парадигме AI SDLC: объединяют AI-инструменты, инженерную разработку и надежную ИТ-инфраструктуру для сложных бизнес-задач",
+      "audience_segment": "enterprise",
+      "topic_cluster": "vc-ii",
+      "platform": "vc.ru",
+      "collected_at": "2026-08-07T09:38:49.048Z"
+    },
+    {
+      "source_url": "https://vc.ru/id6029544/3017500-vnedrenie-ii-v-biznes-pochemu-ne-dlya-vsekh-sfer",
+      "title": "Внедрение ИИ подходит не для всех сфер",
+      "pain_quote": "Так и родилась идея раскрыть эту тему подробнее, разобрать термины, рассмотреть сферы, в которых как я вижу самую большую потребность и пользу от внедрения ИИ, и рассмотреть причину, почему ИИ подходит не для всех сфер",
+      "audience_segment": "smb",
+      "topic_cluster": "vc-ii",
+      "platform": "vc.ru",
+      "collected_at": "2026-08-07T09:38:49.049Z"
+    },
+    {
+      "source_url": "https://go.vc.ru/payx?erid=2VfnxyBMAtp&utm_referrer=https%3A%2F%2Fdzen.ru%2Fmedia%2Fid%2F5bd1da76d0549400ab5b39ca%2F66aa042bf0a885323fe9ddf1&utm_source=tgzen",
+      "title": "Generation AI: кейсы ИИ в бизнесе российских компаний",
+      "pain_quote": "**Медицинская страховая «Лучи» и AI-агенты в сервисе**\\\\",
+      "audience_segment": "enterprise",
+      "topic_cluster": "vc-ii",
+      "platform": "vc.ru",
+      "collected_at": "2026-08-07T09:38:49.049Z"
+    },
+    {
+      "source_url": "https://vc.ru/ai/2728940-ii-dlya-chata-vnedrenie-iskusstvennogo-intellekta",
+      "title": "ИИ для чата: как внедрить ИИ в процесс обработки ...",
+      "pain_quote": "В прошлом, бизнесы часто полагались на ручное управление чатом, что занимало много времени и ресурсов",
+      "audience_segment": "enterprise",
+      "topic_cluster": "vc-ii",
+      "platform": "vc.ru",
+      "collected_at": "2026-08-07T09:38:49.050Z"
+    },
+    {
+      "source_url": "https://vc.ru/ai/2729070-vnedrenie-ii-v-biznes-seller-gpt",
+      "title": "Внедрение ИИ в бизнес в 2026 году: насколько это ...",
+      "pain_quote": "Это гораздо больше, чем создание контента — это ИИ-решения, которые делают бизнес более быстрым, эффективным и масштабируемым",
+      "audience_segment": "enterprise",
+      "topic_cluster": "vc-ii",
+      "platform": "vc.ru",
+      "collected_at": "2026-08-07T09:38:49.051Z"
+    },
+    {
+      "source_url": "https://vc.ru/ai/2695075-iskusstvennyy-intellekt-v-biznese-poisk-i-otbor-keysev",
+      "title": "Применение искусственного интеллекта в бизнесе, как ...",
+      "pain_quote": "Представьте производство: цех, 100 рабочих, ручные операции",
+      "audience_segment": "smb",
+      "topic_cluster": "vc-ii",
+      "platform": "vc.ru",
+      "collected_at": "2026-08-07T09:38:49.053Z"
+    },
+    {
+      "source_url": "https://vc.ru/ai/2007295-ii-dlya-biznesa-vnedrenie-i-sistemnyy-podkhod",
+      "title": "ИИ-навигатор для руководителя: системный подход к ...",
+      "pain_quote": "[Ключевые проблемы внедрения ИИ и как их преодолеть](https://vc",
+      "audience_segment": "enterprise",
+      "topic_cluster": "vc-ii",
+      "platform": "vc.ru",
+      "collected_at": "2026-08-07T09:38:49.054Z"
+    },
+    {
+      "source_url": "https://vc.ru/ai/2720207-ii-v-marketinge",
+      "title": "ИИ в маркетинге",
+      "pain_quote": "Отслеживание актуальных тем, поисковых запросов, мотивации пользователей и причин перехода по ссылкам требует высокой концентрации, внимательности и больших временных затрат со стороны специалистов",
+      "audience_segment": "smb",
+      "topic_cluster": "vc-ii",
+      "platform": "vc.ru",
+      "collected_at": "2026-08-07T09:38:49.055Z"
+    }
+  ]
+}

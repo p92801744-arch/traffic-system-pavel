@@ -1,0 +1,147 @@
+# Каналы и чаты с заказами. Можно править без правки кода.
+history_days: 3
+
+channels:
+  # Уже были
+  - username: freelansim_ru
+    title: Хабр Фриланс
+  - username: n8n_ru
+    title: n8n Russia
+  - username: n8nchat
+    title: n8n Chat
+  - username: ai_jobs
+    title: AI Jobs
+  - username: remote_ru
+    title: Remote RU
+
+  # Добавил Павел
+  - url: https://t.me/+R_KxUQG5hYo5ZjAy
+    title: Приватный чат (инвайт)
+  - username: biznes_klient_rabota
+    title: Бизнес клиент работа
+  - username: bizness_spb
+    title: Бизнес СПб
+  - username: creativeobsession
+    title: Creative Obsession
+  - username: mirkreatorovjob
+    title: Мир креаторов Job
+  - username: freelead
+    title: Бизнес чат предприниматели
+
+  # Похожие биржи и чаты заказчиков
+  - username: freelanc_rabota
+    title: Фриланс работа заказчики
+  - username: FrilanceBirg
+    title: Freelance биржа
+  - username: freelance_birzha
+    title: Фриланс биржа чат
+  - username: freelance_poisk
+    title: Поиск фриланс
+  - username: work_online_today
+    title: Работа онлайн
+  - username: free_chat_for_freelance
+    title: Free chat freelance
+  - username: freelance_in_telegram
+    title: Freelance in Telegram
+  - username: freelansvipchat
+    title: Фриланс VIP чат
+  - username: birzhakanalov1
+    title: Биржа работы онлайн
+
+# Сообщение проходит, если есть хотя бы одно слово из списка.
+keywords:
+  - n8n
+  - make.com
+  - integromat
+  - zapier
+  - чат-бот
+  - чатбот
+  - chatbot
+  - telegram бот
+  - тг бот
+  - бот для
+  - ии агент
+  - ai агент
+  - нейросет
+  - chatgpt
+  - gpt
+  - openai
+  - автоматизац
+  - парсер
+  - crm
+  - битрикс
+  - амосрм
+  - amo
+  - лид
+  - интернет-магазин
+  - интернет магазин
+  - wildberries
+  - ozon
+  - внедрен
+  - под ключ
+  - rag
+  - агентск
+  - голосовой
+  - воронк
+  - 1с
+  - 1c
+  - база знаний
+  - регламент
+  - дзен
+  - ии-ассистент
+  - ии ассистент
+  - ai-ассистент
+  - интеграц
+  - договор
+  - карточки
+  - маркетплейс
+
+# Сначала ищем, что человек сам ищет работу или исполнителя.
+# Потом это склеивается с ключами услуг. Одно без другого не проходит.
+seek_markers:
+  - ищу
+  - ищем
+  - ваканси
+  - в поиске
+  - нужен
+  - нужна
+  - нужны
+  - требуетс
+  - кто может
+  - кто сделает
+
+# Отсекаем явный мусор до оценки субагентом.
+stopwords:
+  - набор на курс
+  - научим за
+  - обучение ии
+  - марафон
+  - крипт
+  - usdt
+  - notcoin
+  - казино
+  - 18+
+  - эскорт
+  - вакансия в штат
+  - полная занятость
+  - ищем в команду на постоянку
+  - freelance assistant
+  - хватит бесконечно скрол
+  - бот сам сгенерирует отклик
+  - мониторит популярные фриланс
+  - находит заказы за тебя
+  - доверь это боту
+  - чистую ленту без спама
+  - непростобот
+  - neprostobot
+  - подключается к вашему аккаунту
+  - первые 3 дня бесплатно
+  - заработал +
+  - пошаговой инструкц
+  - уволиться из найма
+  - ищете работу
+  - вакансии без опыта
+  - опыт не нужен
+  - агент по недвижимости
+  - дизайн карточки
+  - слайдов карточки

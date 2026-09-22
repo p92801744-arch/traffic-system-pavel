@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Вход — ящик лидов</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <h1>Ящик лидов</h1>
+    <p class="muted">Локальный кабинет. Сначала нужен вход в Telegram API, потом код из приложения Telegram.</p>
+
+    {% if error %}
+      <div class="error">{{ error }}</div>
+    {% endif %}
+
+    {% if step == 'api' %}
+      <div class="card">
+        <p>Ещё нет <code>api_id</code> и <code>api_hash</code>. Сейчас создаём приложение на my.telegram.org — пришли номер телефона в чат Cursor в международном формате, например <strong>+79001234567</strong>.</p>
+        <p class="muted">После этого ключи сами попадут в <code>apps/leads/.env</code>, страница обновится.</p>
+      </div>
+    {% elif step == 'code' %}
+      <div class="card">
+        <p>Ключи API уже есть. Telegram пришлёт код <strong>в приложение Telegram</strong>, не SMS.</p>
+        <form method="post" action="/setup/code">
+          <label class="field">
+            Номер телефона
+            <input type="tel" name="phone" value="{{ phone }}" placeholder="+79001234567" required>
+          </label>
+          <button class="btn primary" type="submit">Прислать код</button>
+        </form>
+      </div>
+    {% else %}
+      <div class="card">
+        <p>Код ушёл на {{ phone }}. Открой Telegram на телефоне и скопируй его сюда.</p>
+        <form method="post" action="/setup/sign-in">
+          <input type="hidden" name="phone" value="{{ phone }}">
+          <label class="field">
+            Код из Telegram
+            <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" required>
+          </label>
+          {% if need_password %}
+            <label class="field">
+              Облачный пароль двухэтапной проверки
+              <input type="password" name="password">
+            </label>
+          {% endif %}
+          <button class="btn primary" type="submit">Войти</button>
+        </form>
+      </div>
+    {% endif %}
+  </div>
+</body>
+</html>

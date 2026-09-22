@@ -1,0 +1,316 @@
+{
+  "agent": "03-competitors",
+  "collected_at": "2026-08-07T09:38:49.065Z",
+  "records": [
+    {
+      "name": "Владимир Карпухин",
+      "channel_or_site": "YouTube",
+      "type": "youtube",
+      "services": [
+        "n8n",
+        "MCP",
+        "RAG",
+        "AI-агенты"
+      ],
+      "positioning": "Глубокие технические гайды по n8n и AI",
+      "content_gaps": [
+        "мало e-commerce кейсов",
+        "фокус на технику, не на бизнес-результат"
+      ],
+      "collected_at": "2026-08-07T09:38:49.061Z",
+      "source": "yandex_ai"
+    },
+    {
+      "name": "AI Мастерская",
+      "channel_or_site": "YouTube",
+      "type": "youtube",
+      "services": [
+        "AI-видео",
+        "автопостинг",
+        "HeyGen"
+      ],
+      "positioning": "AI-контент на автопилоте",
+      "content_gaps": [
+        "не про e-commerce процессы",
+        "контент без цифр ROI"
+      ],
+      "collected_at": "2026-08-07T09:38:49.061Z",
+      "source": "yandex_ai"
+    },
+    {
+      "name": "НейроЦех",
+      "channel_or_site": "YouTube",
+      "type": "youtube",
+      "services": [
+        "воркфлоу",
+        "анализ комментариев",
+        "контент-стратегия"
+      ],
+      "positioning": "Реальные n8n воркфлоу",
+      "content_gaps": [
+        "нет специализации на магазинах"
+      ],
+      "collected_at": "2026-08-07T09:38:49.061Z",
+      "source": "yandex_ai"
+    },
+    {
+      "name": "Action Plan | Николай Хлебинский",
+      "channel_or_site": "YouTube",
+      "type": "youtube",
+      "services": [
+        "контент-заводы",
+        "e-commerce",
+        "маркетплейсы"
+      ],
+      "positioning": "E-commerce и маркетплейсы без большой команды",
+      "content_gaps": [
+        "мало про автоматизацию заказов/CRM"
+      ],
+      "collected_at": "2026-08-07T09:38:49.061Z",
+      "source": "yandex_ai"
+    },
+    {
+      "name": "Breakout AI",
+      "channel_or_site": "YouTube",
+      "type": "youtube",
+      "services": [
+        "n8n",
+        "ChatGPT",
+        "Telegram-боты"
+      ],
+      "positioning": "Для новичков, бесплатный n8n",
+      "content_gaps": [
+        "поверхностно",
+        "нет B2B кейсов"
+      ],
+      "collected_at": "2026-08-07T09:38:49.061Z",
+      "source": "yandex_ai"
+    },
+    {
+      "name": "Академия n8n AI",
+      "channel_or_site": "Telegram",
+      "type": "telegram",
+      "services": [
+        "шаблоны n8n",
+        "обучение",
+        "AI-агенты"
+      ],
+      "positioning": "1500+ шаблонов, тренажёр",
+      "content_gaps": [
+        "курсовая модель",
+        "не под ключ"
+      ],
+      "collected_at": "2026-08-07T09:38:49.061Z",
+      "source": "yandex_ai"
+    },
+    {
+      "name": "Vibe Business",
+      "channel_or_site": "Telegram",
+      "type": "telegram",
+      "services": [
+        "контент-завод",
+        "RAG",
+        "RSS"
+      ],
+      "positioning": "Реалити по контент-заводу",
+      "content_gaps": [
+        "не про интернет-магазины"
+      ],
+      "collected_at": "2026-08-07T09:38:49.061Z",
+      "source": "yandex_ai"
+    },
+    {
+      "name": "Neuro Automata",
+      "channel_or_site": "Telegram",
+      "type": "telegram",
+      "services": [
+        "n8n уроки",
+        "воркфлоу"
+      ],
+      "positioning": "Пошаговые разборы n8n",
+      "content_gaps": [
+        "нет e-commerce специализации"
+      ],
+      "collected_at": "2026-08-07T09:38:49.061Z",
+      "source": "yandex_ai"
+    },
+    {
+      "name": "Внедрение ИИ для бизнеса",
+      "channel_or_site": "https://fmf.dev/services/implementation-of-ai/",
+      "type": "agency",
+      "services": [
+        "чат-боты",
+        "ChatGPT интеграции",
+        "CRM интеграции",
+        "AI-агенты"
+      ],
+      "positioning": "# Внедрение ИИ для бизнеса\n## ИИ решения для бизнеса — это неиссякаемый    источник возможностей  для роста эффективности    и превосхождения конкурентных преимуществ\n### Автоматизация бизнеса позволя",
+      "price_hint": "от 500 руб",
+      "content_gaps": [
+        "требует ручной проверки"
+      ],
+      "collected_at": "2026-08-07T09:38:49.062Z",
+      "source": "firecrawl"
+    },
+    {
+      "name": "Услуги AI / ИИ: разработка и внедрение искусственного ...",
+      "channel_or_site": "https://justltd.ru/razrabotkaii",
+      "type": "agency",
+      "services": [
+        "чат-боты"
+      ],
+      "positioning": "Услуги AI: разработка и внедрение ИИ\n\n## Хочу получить консультацию от экспертов компании \"Джаст ИТ\"\nпредоставление услуг по обучению языковых моделей на основе корпоративных данных, что позволяет соз",
+      "price_hint": "от 4500 руб",
+      "content_gaps": [
+        "требует ручной проверки"
+      ],
+      "collected_at": "2026-08-07T09:38:49.062Z",
+      "source": "firecrawl"
+    },
+    {
+      "name": "Услуги по разработке агентов ИИ",
+      "channel_or_site": "https://leverx.com/ru/services/ai-agent-development",
+      "type": "agency",
+      "services": [
+        "чат-боты",
+        "CRM интеграции",
+        "RAG / база знаний",
+        "AI-агенты"
+      ],
+      "positioning": "# Услуги по разработке агентов ИИ\nУзнайте больше о наших достижениях на рынке цифровой трансформации бизнеса!\n\n## СВЯЗАТЬСЯ С НАМИ\n|  |  |  |\n|-|-|-|\n| ![](https://www.google.com/recaptcha/enterprise/",
+      "price_hint": "",
+      "content_gaps": [
+        "требует ручной проверки"
+      ],
+      "collected_at": "2026-08-07T09:38:49.063Z",
+      "source": "firecrawl"
+    },
+    {
+      "name": "Запуск ИИ-агентства: с чего начать и как привлечь ...",
+      "channel_or_site": "https://vc.ru/marketing/2178120-kak-zapustit-ii-agentstvo",
+      "type": "agency",
+      "services": [
+        "чат-боты",
+        "CRM интеграции",
+        "SEO",
+        "AI-контент",
+        "AI-агенты",
+        "маркетплейсы",
+        "e-commerce"
+      ],
+      "positioning": "# Запуск ИИ-агентства: с чего начать и как привлечь клиентов\n## Перспективы ИИ-бизнеса\nИИ-агентство — это современный формат аутсорсинговой компании, предоставляющей услуги по интеграции технологий ис",
+      "price_hint": "",
+      "content_gaps": [
+        "требует ручной проверки"
+      ],
+      "collected_at": "2026-08-07T09:38:49.064Z",
+      "source": "firecrawl"
+    },
+    {
+      "name": "AI-услуги для бизнеса | AI-агенты и автоматизация",
+      "channel_or_site": "https://jsglobal.by/ai-uslugi/",
+      "type": "agency",
+      "services": [
+        "чат-боты",
+        "CRM интеграции",
+        "AI-контент",
+        "AI-агенты"
+      ],
+      "positioning": "# AI-услуги для бизнеса: автоматизация процессов и внедрение AI-агентов\n## Часто задаваемые вопросы (FAQ)\nAI-услуги для бизнеса — это разработка и внедрение решений на основе искусственного интеллекта",
+      "price_hint": "",
+      "content_gaps": [
+        "требует ручной проверки"
+      ],
+      "collected_at": "2026-08-07T09:38:49.064Z",
+      "source": "firecrawl"
+    },
+    {
+      "name": "Разработка ИИ на заказ для вашего бизнеса",
+      "channel_or_site": "https://madbrains.ru/services/ai-dlya-biznesa",
+      "type": "agency",
+      "services": [
+        "чат-боты",
+        "ChatGPT интеграции",
+        "n8n автоматизация",
+        "AI-контент",
+        "RAG / база знаний",
+        "маркетплейсы"
+      ],
+      "positioning": "# Искусственный   интеллект для бизнеса\nИскусственный интеллект для бизнеса\n\nние",
+      "price_hint": "от 5 000 000 руб",
+      "content_gaps": [
+        "требует ручной проверки"
+      ],
+      "collected_at": "2026-08-07T09:38:49.064Z",
+      "source": "firecrawl"
+    },
+    {
+      "name": "С чего начать внедрение ИИ в бизнес: шаги, мифы и кейсы",
+      "channel_or_site": "https://www.youtube.com/watch?v=mQpD5cB4C3s",
+      "type": "agency",
+      "services": [
+        "AI-контент",
+        "AI-агенты"
+      ],
+      "positioning": "# С чего начать внедрение ИИ в бизнес: шаги, мифы и кейсы\n[**Миф 3: Использование ИИ требует серьезной технической подготовки**  **Миф 3: Использование ИИ требует серьезной технической подготовки** \\\n",
+      "price_hint": "",
+      "content_gaps": [
+        "требует ручной проверки"
+      ],
+      "collected_at": "2026-08-07T09:38:49.064Z",
+      "source": "firecrawl"
+    },
+    {
+      "name": "Услуги по разработке агентного ИИ: ИИ-агенты и ...",
+      "channel_or_site": "https://scand.com/ru/company/blog/agentic-ai/",
+      "type": "agency",
+      "services": [
+        "чат-боты",
+        "CRM интеграции",
+        "AI-контент",
+        "RAG / база знаний",
+        "AI-агенты"
+      ],
+      "positioning": "Агентный ИИ: узнайте, как создавать и использовать ИИ-агентов для автоматизации задач. Изучите наши сервисы и услуги по разработке ...",
+      "price_hint": "",
+      "content_gaps": [
+        "требует ручной проверки"
+      ],
+      "collected_at": "2026-08-07T09:38:49.065Z",
+      "source": "firecrawl"
+    },
+    {
+      "name": "ИИ-решения для бизнеса под ключ | Внедрение ... - Insight AI",
+      "channel_or_site": "https://insightai.ru/services/custom-ii/",
+      "type": "agency",
+      "services": [
+        "чат-боты",
+        "CRM интеграции",
+        "AI-агенты"
+      ],
+      "positioning": "# Внедрение искусственного интеллекта в бизнес-процессы\nуслуги\n\n## Автоматизируйте бизнес с помощью ИИ\nПосле тестирования мы масштабируем систему и сопровождаем ее в рамках услуги «внедрение ИИ в бизн",
+      "price_hint": "",
+      "content_gaps": [
+        "требует ручной проверки"
+      ],
+      "collected_at": "2026-08-07T09:38:49.065Z",
+      "source": "firecrawl"
+    },
+    {
+      "name": "С чего начать внедрение ИИ в бизнес: шаги, мифы и кейсы",
+      "channel_or_site": "https://www.youtube.com/watch?v=mQpD5cB4C3s",
+      "type": "agency",
+      "services": [
+        "AI-контент",
+        "AI-агенты"
+      ],
+      "positioning": "# С чего начать внедрение ИИ в бизнес: шаги, мифы и кейсы\n[**Миф 3: Использование ИИ требует серьезной технической подготовки**  **Миф 3: Использование ИИ требует серьезной технической подготовки** \\\n",
+      "price_hint": "",
+      "content_gaps": [
+        "требует ручной проверки"
+      ],
+      "collected_at": "2026-08-07T09:38:49.065Z",
+      "source": "firecrawl"
+    }
+  ]
+}

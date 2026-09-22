@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DemandRecord",
+  "description": "Запись спроса из WordStat (Агент 1)",
+  "type": "object",
+  "required": ["cluster", "phrase", "collected_at"],
+  "properties": {
+    "cluster": {
+      "type": "string",
+      "description": "ID кластера (A–J)"
+    },
+    "phrase": {
+      "type": "string",
+      "description": "Исходная seed-фраза"
+    },
+    "frequency": {
+      "type": ["integer", "null"],
+      "description": "Частотность (показы/мес)"
+    },
+    "trend": {
+      "type": ["string", "null"],
+      "enum": ["up", "down", "stable", null],
+      "description": "Направление тренда"
+    },
+    "related_phrases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "phrase": { "type": "string" },
+          "frequency": { "type": ["integer", "null"] }
+        }
+      }
+    },
+    "regions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "region": { "type": "string" },
+          "share": { "type": ["number", "null"] }
+        }
+      }
+    },
+    "commercial_intent": {
+      "type": "string",
+      "enum": ["high", "medium", "low"],
+      "description": "Оценка коммерческого интента"
+    },
+    "fit_score": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5,
+      "description": "Близость к e-commerce + автоматизация"
+    },
+    "collected_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source": {
+      "type": "string",
+      "default": "rusak-wordstat-mcp"
+    }
+  }
+}

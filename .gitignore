@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+.env
+apps/leads/.env
+apps/leads/.venv/
+apps/leads/data/*.db
+apps/leads/data/*.json
+!apps/leads/data/reject-lessons.json
+apps/leads/data/*.session
+apps/leads/data/*.session-journal
+*.session
+__pycache__/
+*.pyc
+
+# Отдельный проект, свой репозиторий: github.com/p92801744-arch/rusakb-gate
+rusakb-gate/
+
+# Временные пробы
+tmp-ws.json
+tmp-mcp-*.json
+
+# Firecrawl output (optional: commit raw data if needed)
+.firecrawl/
+
+# Temp MCP probe files
+tmp-mcp-*.json
+
+# OS
+.DS_Store
+Thumbs.db

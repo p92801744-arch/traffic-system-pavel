@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PainRecord",
+  "description": "Запись боли аудитории (Агент 2)",
+  "type": "object",
+  "required": ["source_url", "pain_quote", "collected_at"],
+  "properties": {
+    "source_url": { "type": "string", "format": "uri" },
+    "title": { "type": "string" },
+    "pain_quote": {
+      "type": "string",
+      "description": "Цитата или формулировка боли словами клиента"
+    },
+    "audience_segment": {
+      "type": "string",
+      "enum": ["smb", "ecommerce", "enterprise", "freelancer", "unknown"]
+    },
+    "topic_cluster": {
+      "type": "string",
+      "description": "ID кластера A–J или тема"
+    },
+    "platform": {
+      "type": "string",
+      "enum": ["vc.ru", "habr", "forum", "other"]
+    },
+    "collected_at": { "type": "string", "format": "date-time" }
+  }
+}

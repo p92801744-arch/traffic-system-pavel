@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CompetitorRecord",
+  "description": "Запись конкурента (Агент 3)",
+  "type": "object",
+  "required": ["name", "collected_at"],
+  "properties": {
+    "name": { "type": "string" },
+    "channel_or_site": { "type": "string" },
+    "type": {
+      "type": "string",
+      "enum": ["agency", "freelancer", "youtube", "telegram", "course", "other"]
+    },
+    "services": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "positioning": { "type": "string" },
+    "price_hint": { "type": "string" },
+    "content_gaps": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Что конкурент НЕ закрывает или делает шаблонно"
+    },
+    "collected_at": { "type": "string", "format": "date-time" }
+  }
+}

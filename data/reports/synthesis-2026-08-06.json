@@ -1,0 +1,132 @@
+{
+  "generated_at": "2026-08-06T12:00:00Z",
+  "audit_status": "complete",
+  "data_sources": {
+    "demand_phrases": 88,
+    "pains_extracted": 69,
+    "competitors": 18,
+    "narratives": 67,
+    "wordstat_mcp": "unavailable_bad_request",
+    "firecrawl": "authenticated",
+    "yandex_ai": "partial_rate_limited"
+  },
+  "vectors": [
+    {
+      "name": "SEO + GEO + контент для интернет-магазинов",
+      "demand_evidence": "Кластеры D+G, 21 фраза fit=5, тренд up",
+      "competition_level": "medium",
+      "fit_score": 5,
+      "recommendation": "sell"
+    },
+    {
+      "name": "Автоматизация заказов e-commerce",
+      "demand_evidence": "автоматизация заказов интернет магазин, crm для интернет магазина",
+      "competition_level": "low",
+      "fit_score": 5,
+      "recommendation": "sell"
+    },
+    {
+      "name": "AI-контент под SKU",
+      "demand_evidence": "наполнение карточек товаров ии, ии для wildberries/ozon",
+      "competition_level": "medium",
+      "fit_score": 5,
+      "recommendation": "sell"
+    },
+    {
+      "name": "Аудит магазина (вход)",
+      "demand_evidence": "аудит бизнес процессов, сколько стоит внедрение ии",
+      "competition_level": "medium",
+      "fit_score": 4,
+      "recommendation": "sell"
+    },
+    {
+      "name": "No-code автоматизация (n8n)",
+      "demand_evidence": "n8n настройка, no code автоматизация",
+      "competition_level": "high",
+      "fit_score": 4,
+      "recommendation": "content"
+    },
+    {
+      "name": "AI-агенты для бизнеса",
+      "demand_evidence": "ai агент для бизнеса, хайп 2025-2026",
+      "competition_level": "high",
+      "fit_score": 3,
+      "recommendation": "content"
+    },
+    {
+      "name": "RAG / база знаний",
+      "demand_evidence": "rag для бизнеса, база знаний компании ии",
+      "competition_level": "low",
+      "fit_score": 3,
+      "recommendation": "content"
+    }
+  ],
+  "gaps": [
+    {
+      "niche": "GEO + SEO для интернет-магазинов",
+      "why_gap": "SEO-шники не знают GEO, AI-каналы не знают SEO"
+    },
+    {
+      "niche": "Автоматизация заказов МСБ",
+      "why_gap": "Enterprise не берёт мелкие чеки, n8n-каналы не связывают с бизнесом"
+    },
+    {
+      "niche": "AI-контент под SKU с SEO-структурой",
+      "why_gap": "Курсы и копипаст без стратегии"
+    },
+    {
+      "niche": "Один специалист вместо отдела",
+      "why_gap": "Агентства — пакеты, фрилансеры — один навык"
+    },
+    {
+      "niche": "Аудит с цифрами",
+      "why_gap": "Консалтинг без внедрения пустой, внедрение без аудита рискованно"
+    }
+  ],
+  "positioning": {
+    "one_liner": "Строю системы роста для интернет-магазинов: органический трафик, AI-контент и автоматизация процессов — на основе реальных внедрений.",
+    "entry_services": [
+      "Аудит магазина (трафик, контент, процессы, AI-возможности)",
+      "Пилот (одна связка с KPI: SEO+GEO, автоматизация заказов, AI-контент)",
+      "Сопровождение (ежемесячно: контент, автоматизация, аналитика)"
+    ]
+  },
+  "content_topics": [
+    {"title": "SEO vs GEO: в чём разница", "channel": "youtube", "funnel_stage": "awareness"},
+    {"title": "Автоматизация заказов за 1 день (n8n)", "channel": "youtube", "funnel_stage": "awareness"},
+    {"title": "5 задач магазина, которые AI решает", "channel": "youtube", "funnel_stage": "awareness"},
+    {"title": "3 ошибки ChatGPT для бизнеса", "channel": "youtube", "funnel_stage": "awareness"},
+    {"title": "GEO-оптимизация: как попасть в YandexGPT", "channel": "youtube", "funnel_stage": "awareness"},
+    {"title": "n8n: бот в CRM за 10 минут", "channel": "youtube", "funnel_stage": "awareness"},
+    {"title": "Свой сайт vs маркетплейс в 2026", "channel": "youtube", "funnel_stage": "awareness"},
+    {"title": "Кейс: магазин аккумуляторов", "channel": "both", "funnel_stage": "trust"},
+    {"title": "100 карточек с AI без копипаста", "channel": "youtube", "funnel_stage": "trust"},
+    {"title": "Почему автоматизация не сработала", "channel": "youtube", "funnel_stage": "trust"},
+    {"title": "Схема: путь заказа до CRM", "channel": "telegram", "funnel_stage": "trust"},
+    {"title": "Сколько стоит AI в магазин", "channel": "youtube", "funnel_stage": "trust"},
+    {"title": "GEO чеклист для магазина", "channel": "telegram", "funnel_stage": "trust"},
+    {"title": "До/после: органика за 3 месяца", "channel": "both", "funnel_stage": "trust"},
+    {"title": "Чеклист: 15 точек потерь", "channel": "telegram", "funnel_stage": "lead"},
+    {"title": "Бесплатный разбор магазина", "channel": "telegram", "funnel_stage": "lead"},
+    {"title": "Как проходит аудит", "channel": "youtube", "funnel_stage": "lead"},
+    {"title": "Пилот за 2 недели", "channel": "telegram", "funnel_stage": "lead"},
+    {"title": "FAQ: цена, сроки, программист", "channel": "both", "funnel_stage": "lead"},
+    {"title": "Отзыв клиента", "channel": "both", "funnel_stage": "lead"}
+  ],
+  "top_pains": [
+    "Нехватка ИТ-специалистов для внедрения AI (20% компаний)",
+    "Высокая стоимость внедрения, сложно оценить ROI",
+    "Сопротивление сотрудников изменениям",
+    "Завышенные ожидания от AI",
+    "Неподготовленность данных (пропуски, дубли)",
+    "Отсутствие чёткой стратегии и целей",
+    "МСБ не получает ожидаемого эффекта от автоматизации",
+    "Копирование чужих решений — не работает в своей среде"
+  ],
+  "reports": [
+    "data/reports/vectors.md",
+    "data/reports/gaps.md",
+    "data/reports/positioning.md",
+    "data/reports/content-plan.md"
+  ]
+}

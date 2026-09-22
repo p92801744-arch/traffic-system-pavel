@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SynthesisOutput",
+  "description": "Структура выхода Агента 5",
+  "type": "object",
+  "required": ["generated_at", "vectors", "gaps", "positioning", "content_topics"],
+  "properties": {
+    "generated_at": { "type": "string", "format": "date-time" },
+    "vectors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "demand_evidence": { "type": "string" },
+          "competition_level": { "type": "string", "enum": ["low", "medium", "high"] },
+          "fit_score": { "type": "integer", "minimum": 1, "maximum": 5 },
+          "recommendation": { "type": "string", "enum": ["sell", "content", "skip"] }
+        }
+      }
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "niche": { "type": "string" },
+          "why_gap": { "type": "string" }
+        }
+      }
+    },
+    "positioning": {
+      "type": "object",
+      "properties": {
+        "one_liner": { "type": "string" },
+        "entry_services": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 3
+        }
+      }
+    },
+    "content_topics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "channel": { "type": "string", "enum": ["youtube", "telegram", "both"] },
+          "funnel_stage": { "type": "string", "enum": ["awareness", "trust", "lead"] }
+        }
+      },
+      "minItems": 20
+    }
+  }
+}

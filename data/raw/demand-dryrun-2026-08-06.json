@@ -1,0 +1,19 @@
+{
+  "agent": "01-demand",
+  "dry_run": true,
+  "collected_at": "2026-08-06T20:30:00Z",
+  "phrases_requested": 1,
+  "phrases_collected": 0,
+  "status": "mcp_error",
+  "error": "Call_yandex_Wordstat_Universal_ returned: Bad request - please check your parameters",
+  "attempted_phrase": "ии для интернет магазина",
+  "attempted_params": {
+    "phrase": "ии для интернет магазина",
+    "report_type_": "topRequests",
+    "numPhrases_": 10,
+    "regions": "225",
+    "devices": "all"
+  },
+  "fallback": "Заполнить вручную с wordstat.yandex.ru или исправить n8n workflow на rusakbn8n.ru",
+  "records": []
+}
