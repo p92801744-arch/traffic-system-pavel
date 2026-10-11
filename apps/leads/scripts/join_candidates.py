@@ -33,8 +33,9 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from app.collector import make_client  # noqa: E402
-from app.session_gate import SessionBusy, ensure, release  # noqa: E402
+from app.collector import disconnect, join_lock_active, make_client  # noqa: E402
+from app.servicekit import runtime_dir  # noqa: E402
+from app.session_gate import borrow_session  # noqa: E402
 from app.settings import settings  # noqa: E402
 
 DEFAULT_ORDER = [
@@ -164,22 +165,21 @@ async def main(usernames: list[str], pause_min: int, pause_max: int) -> int:
         print("Сначала войди в ящик лидов на этом компьютере и подтверди код Telegram.")
         return 2
 
-    try:
-        ensure("join")
-    except SessionBusy as exc:
-        print(f"Сессию Telegram уже держит другой процесс ({exc}).")
-        print("Второй клиент не открываю. Дождись, пока ящик лидов или прогон рейтинга отпустит сессию.")
+    if join_lock_active():
+        print("Идёт вступление в чаты. Сессию Telegram не открываю.")
         return 3
 
-    client = make_client()
     try:
-        return await _join_all(client, usernames, pause_min, pause_max)
-    finally:
-        try:
-            await client.disconnect()
-        except Exception:
-            pass
-        release()
+        async with borrow_session(runtime_dir(), timeout=120):
+            try:
+                client = make_client()
+                return await _join_all(client, usernames, pause_min, pause_max)
+            finally:
+                await disconnect()
+    except TimeoutError as exc:
+        print(f"Сессию не взял: {exc}")
+        print("Слушатель Telegram не отдал сессию. Второй клиент не открываю.")
+        return 3
 
 
 async def _join_all(client, usernames: list[str], pause_min: int, pause_max: int) -> int:

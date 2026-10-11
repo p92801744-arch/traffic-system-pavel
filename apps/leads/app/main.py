@@ -12,7 +12,7 @@ from fastapi.templating import Jinja2Templates
 from app import boards, chat_rating, chat_scan, collector, db, lessons, mailings, networking, notifier, scorer
 from app.filters import candidate_channels, configured_channels, intake_hits, load_sources
 from app import reply
-from app.session_gate import SessionBusy, release as release_session
+from app.servicekit import current_role, embed_workers
 from app.settings import ROOT, settings
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -44,29 +44,26 @@ async def lifespan(app: FastAPI):
     await db.reset_writing_replies(conn)
     await conn.close()
     asyncio.create_task(_rescore_safe())
-    asyncio.create_task(boards.poll_forever())
-    asyncio.create_task(networking.poll_forever())
-    asyncio.create_task(_telegram_safe())
-    await notifier.start()
+    if embed_workers():
+        asyncio.create_task(boards.poll_forever())
+        asyncio.create_task(networking.poll_forever())
+        asyncio.create_task(_telegram_safe())
+        await notifier.start()
+    else:
+        log.info("Сборщики и бот запущены отдельными процессами")
     yield
-    await notifier.stop()
+    if embed_workers():
+        await notifier.stop()
     await collector.disconnect()
-    release_session()
 
 
 async def _telegram_safe() -> None:
-    while True:
-        try:
-            if await collector.is_authorized():
-                await collector.start_listener()
-                await _collect_history_safe()
-            return
-        except SessionBusy:
-            log.info("Сессия Telegram занята другим процессом. Жду и не открываю второй клиент.")
-            await asyncio.sleep(5)
-        except Exception:
-            log.exception("Telegram ещё не готов")
-            return
+    try:
+        if await collector.is_authorized():
+            await collector.start_listener()
+            await _collect_history_safe()
+    except Exception:
+        log.exception("Telegram ещё не готов")
 
 
 async def _rescore_safe():
@@ -373,7 +370,7 @@ async def internal_chat_rate_status(request: Request):
 
 async def _run_chat_rate(**kwargs) -> None:
     try:
-        await chat_scan.run_scan(**kwargs)
+        await chat_scan.run_guarded(**kwargs)
     except Exception as exc:
         log.exception("Прогон рейтинга чатов")
         chat_scan.JOB["error"] = str(exc)
@@ -477,11 +474,14 @@ async def setup_sign_in(
     phone_hash = _login_hash.get(phone, "")
     try:
         await collector.sign_in(phone, code.strip(), phone_hash, password.strip() or None)
-        await collector.start_listener()
-        try:
-            await collector.collect_history()
-        except Exception:
-            log.exception("Сбор после входа не удался")
+        if embed_workers():
+            await collector.start_listener()
+            try:
+                await collector.collect_history()
+            except Exception:
+                log.exception("Сбор после входа не удался")
+        else:
+            log.info("Вход сохранён. Живую ленту подхватит процесс Telegram.")
         return RedirectResponse("/", status_code=303)
     except SessionPasswordNeededError:
         return render(
@@ -600,6 +600,7 @@ async def health():
 
     return {
         "ok": True,
+        "role": current_role(),
         "telegram_api": settings.has_telegram_api,
         "authorized": authorized,
         "scorer": True,

@@ -3,11 +3,15 @@ node_modules/
 .env
 apps/leads/.env
 apps/leads/.venv/
+apps/leads/logs/
+apps/leads/data/runtime/
 apps/leads/data/*.db
 apps/leads/data/*.json
 !apps/leads/data/reject-lessons.json
 apps/leads/data/*.session
 apps/leads/data/*.session-journal
+apps/leads/data/telegram.string
+apps/leads/data/JOIN_IN_PROGRESS
 apps/leads/data/digest-day.txt
 apps/leads/data/mailings.yaml
 apps/leads/data/*-session.json

@@ -1,8 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import time
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
+from functools import wraps
+from pathlib import Path
 
 from telethon import TelegramClient, events, utils
 from telethon.errors import (
@@ -23,8 +28,8 @@ from app.contacts import extract_contact
 from app.filters import intake_hits, load_sources
 from app.notifier import send_lead
 from app.scorer import score_lead
-from app.session_gate import ensure
-from app.settings import settings
+from app.servicekit import current_role, peek_telegram_authorized
+from app.settings import ROOT, settings
 
 log = logging.getLogger("leads.collector")
 
@@ -34,10 +39,16 @@ _watch_ids: set[int] = set()
 # Одна корутина за раз ходит в Telegram: сбор истории, вход в чаты и рейтинг.
 work_lock = asyncio.Lock()
 
+# While scripts/join_chats.py runs, this file blocks the inbox from holding the session.
+JOIN_LOCK = ROOT / "data" / "JOIN_IN_PROGRESS"
+
+
+def join_lock_active() -> bool:
+    return JOIN_LOCK.exists()
+
 
 def make_client() -> TelegramClient:
     global _client
-    ensure("collector")
     if _client is None:
         settings.session_path.parent.mkdir(parents=True, exist_ok=True)
         _client = TelegramClient(
@@ -48,15 +59,91 @@ def make_client() -> TelegramClient:
     return _client
 
 
+@asynccontextmanager
+async def _exclusive_session():
+    """Сайт берёт сессию на короткую операцию и сразу отпускает слушателя."""
+    if current_role() != "web":
+        yield
+        return
+    from app.servicekit import runtime_dir
+    from app.session_gate import borrow_session
+
+    async with borrow_session(runtime_dir()):
+        try:
+            yield
+        finally:
+            await disconnect()
+
+
+def _uses_session(fn):
+    @wraps(fn)
+    async def wrapper(*args, **kwargs):
+        async with _exclusive_session():
+            return await fn(*args, **kwargs)
+
+    return wrapper
+
+
+# Вход с паролем Telegram — два запроса подряд. Сессию между ними не отдаём,
+# иначе слушатель заберёт её посередине. Через 3 минуты отпускаем сами.
+_password_hold = None
+_password_hold_task: asyncio.Task | None = None
+_password_dropping = False
+
+
+async def _ensure_password_hold() -> None:
+    global _password_hold, _password_hold_task
+    if current_role() != "web" or _password_hold is not None:
+        return
+    from app.servicekit import runtime_dir
+    from app.session_gate import borrow_session
+
+    hold = borrow_session(runtime_dir(), timeout=40)
+    await hold.__aenter__()
+    _password_hold = hold
+
+    async def _expire() -> None:
+        await asyncio.sleep(180)
+        await _drop_password_hold()
+
+    _password_hold_task = asyncio.create_task(_expire())
+
+
+async def _drop_password_hold() -> None:
+    global _password_hold, _password_hold_task, _password_dropping
+    if _password_dropping:
+        return
+    _password_dropping = True
+    try:
+        task = _password_hold_task
+        hold = _password_hold
+        _password_hold_task = None
+        _password_hold = None
+        if task is not None and task is not asyncio.current_task():
+            task.cancel()
+        await disconnect()
+        if hold is not None:
+            await hold.__aexit__(None, None, None)
+    finally:
+        _password_dropping = False
+
+
 async def is_authorized() -> bool:
     if not settings.has_telegram_api:
         return False
+    if join_lock_active():
+        log.info("Telegram на паузе: идёт скрипт вступления в чаты")
+        return False
+    # Страница не должна открывать сессию: её держит отдельный слушатель.
+    if current_role() == "web":
+        return peek_telegram_authorized()
     client = make_client()
     if not client.is_connected():
         await client.connect()
     return await client.is_user_authorized()
 
 
+@_uses_session
 async def send_login_code(phone: str) -> str:
     client = make_client()
     if not client.is_connected():
@@ -66,15 +153,28 @@ async def send_login_code(phone: str) -> str:
 
 
 async def sign_in(phone: str, code: str, phone_code_hash: str, password: str | None = None):
+    web = current_role() == "web"
+    if web:
+        await _ensure_password_hold()
     client = make_client()
     if not client.is_connected():
         await client.connect()
     try:
-        await client.sign_in(phone=phone, code=code, phone_code_hash=phone_code_hash)
+        try:
+            await client.sign_in(phone=phone, code=code, phone_code_hash=phone_code_hash)
+        except SessionPasswordNeededError:
+            if not password:
+                raise
+            await client.sign_in(password=password)
     except SessionPasswordNeededError:
-        if not password:
-            raise
-        await client.sign_in(password=password)
+        raise
+    except Exception:
+        if web:
+            await _drop_password_hold()
+        raise
+    else:
+        if web:
+            await _drop_password_hold()
 
 
 def watched_channels(sources: dict) -> list[dict]:
@@ -221,6 +321,7 @@ async def _ingest_message(
         await conn.close()
 
 
+@_uses_session
 async def refresh_watch_list() -> dict:
     async with work_lock:
         return await _refresh_watch_list()
@@ -255,6 +356,7 @@ async def _refresh_watch_list() -> dict:
     return {"watching": joined, "errors": errors}
 
 
+@_uses_session
 async def collect_history() -> dict:
     async with work_lock:
         return await _collect_history()
@@ -313,17 +415,89 @@ async def _collect_history() -> dict:
     return {"saved": saved, "skipped": skipped, "errors": errors}
 
 
+def _empty_profile() -> dict:
+    return {"about": "", "kind": ""}
+
+
 async def author_profile(lead: dict) -> dict:
     """Шапка того, кто написал пост: человек или канал."""
-    async with work_lock:
-        return await _author_profile(lead)
+    if current_role() != "web":
+        return await read_author_profile(lead)
+    from app.servicekit import runtime_dir
+    from app.session_gate import owner_alive
+
+    runtime = runtime_dir()
+    if owner_alive(runtime):
+        # Слушатель уже держит сессию. Просим его прочитать шапку, без переподключения.
+        return await _profile_via_listener(runtime, lead)
+    async with _exclusive_session():
+        return await read_author_profile(lead)
 
 
-async def _author_profile(lead: dict) -> dict:
-    empty = {"about": "", "kind": ""}
+async def _profile_via_listener(runtime: Path, lead: dict) -> dict:
     username = (lead.get("sender_username") or "").lstrip("@")
     if not username:
-        return empty
+        return _empty_profile()
+    token = f"{time.time_ns()}"
+    request = runtime / "profile.request.json"
+    result = runtime / "profile.result.json"
+    temporary = request.with_suffix(".tmp")
+    temporary.write_text(
+        json.dumps({"token": token, "sender_username": username}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    temporary.replace(request)
+    deadline = time.monotonic() + 20
+    try:
+        while time.monotonic() < deadline:
+            if result.exists():
+                try:
+                    data = json.loads(result.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    data = None
+                if isinstance(data, dict) and data.get("token") == token:
+                    return {"about": data.get("about") or "", "kind": data.get("kind") or ""}
+            await asyncio.sleep(0.2)
+    finally:
+        try:
+            current = json.loads(request.read_text(encoding="utf-8")) if request.exists() else None
+        except (OSError, json.JSONDecodeError):
+            current = None
+        if isinstance(current, dict) and current.get("token") == token:
+            request.unlink(missing_ok=True)
+    log.info("Слушатель не успел прочитать шапку профиля")
+    return _empty_profile()
+
+
+async def answer_profile_request(runtime: Path) -> None:
+    """Вызывается слушателем: читает шапку, не отдавая сессию сайту."""
+    request = runtime / "profile.request.json"
+    if not request.exists():
+        return
+    try:
+        payload = json.loads(request.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        request.unlink(missing_ok=True)
+        return
+    if not isinstance(payload, dict) or not payload.get("token"):
+        request.unlink(missing_ok=True)
+        return
+    profile = await read_author_profile(payload)
+    result = runtime / "profile.result.json"
+    temporary = result.with_suffix(".tmp")
+    temporary.write_text(
+        json.dumps({"token": payload["token"], **profile}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    temporary.replace(result)
+    if request.exists():
+        request.unlink(missing_ok=True)
+
+
+async def read_author_profile(lead: dict) -> dict:
+    username = (lead.get("sender_username") or "").lstrip("@")
+    if not username:
+        return _empty_profile()
     try:
         from telethon.tl.functions.channels import GetFullChannelRequest
         from telethon.tl.functions.users import GetFullUserRequest
@@ -341,10 +515,10 @@ async def _author_profile(lead: dict) -> dict:
             full = await client(GetFullChannelRequest(entity))
             about = (getattr(full.full_chat, "about", None) or "").strip()
             return {"about": about, "kind": "channel"}
-        return empty
+        return _empty_profile()
     except Exception:
         log.info("Шапку профиля автора прочитать не удалось")
-        return empty
+        return _empty_profile()
 
 
 async def start_listener() -> None:

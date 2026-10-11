@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
-import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -13,7 +12,6 @@ import pytest
 from telethon.errors import ChannelPrivateError, FloodWaitError, UserNotParticipantError
 
 from app import chat_rating, chat_scan, db, tgstat
-from app.session_gate import ensure, plan_run, release, session_sqlite_busy
 from app.settings import settings
 
 NOW = datetime(2026, 10, 11, 12, 0, tzinfo=timezone.utc)
@@ -694,7 +692,7 @@ def test_internal_rate_route_is_local(tmp_path, monkeypatch):
             error="",
         )
 
-    monkeypatch.setattr(chat_scan, "run_scan", fake_scan)
+    monkeypatch.setattr(chat_scan, "run_guarded", fake_scan)
 
     from fastapi.testclient import TestClient
 
@@ -721,119 +719,105 @@ def test_internal_rate_route_is_local(tmp_path, monkeypatch):
         assert status.json()["ok"] is True
 
 
-def test_plan_run_never_opens_a_second_session_while_inbox_is_up():
-    assert plan_run(inbox_up=True, can_delegate=True, session_busy=True) == "delegate"
-    assert plan_run(inbox_up=True, can_delegate=False, session_busy=False) == "busy"
-    assert plan_run(inbox_up=False, can_delegate=False, session_busy=True) == "busy"
-    assert plan_run(inbox_up=False, can_delegate=False, session_busy=False) == "local"
+def test_run_guarded_borrows_then_disconnects_before_release(monkeypatch):
+    from app import collector, session_gate
+
+    order: list[str] = []
+
+    class _Borrow:
+        async def __aenter__(self):
+            order.append("borrow")
+            return self
+
+        async def __aexit__(self, *args):
+            order.append("release")
+            return False
+
+    def fake_borrow(runtime, timeout=40):
+        order.append("ask")
+        return _Borrow()
+
+    async def fake_scan(**kwargs):
+        order.append("scan")
+        return {"saved": 0}
+
+    async def fake_disconnect():
+        order.append("disconnect")
+
+    monkeypatch.setattr(collector, "join_lock_active", lambda: False)
+    monkeypatch.setattr(collector, "disconnect", fake_disconnect)
+    monkeypatch.setattr(session_gate, "borrow_session", fake_borrow)
+    monkeypatch.setattr(chat_scan, "run_scan", fake_scan)
+
+    result = asyncio.run(chat_scan.run_guarded(limit=1))
+    assert result == {"saved": 0}
+    assert order == ["ask", "borrow", "scan", "disconnect", "release"]
 
 
-def test_session_lock_is_exclusive(tmp_path, monkeypatch):
-    monkeypatch.setattr(settings, "session_path", tmp_path / "telegram")
-    release()
-    ensure("rate")
-    try:
-        import os
-        import subprocess
-        import sys
+def test_run_guarded_does_not_borrow_while_join_lock(monkeypatch):
+    from app import collector, session_gate
 
-        code = (
-            "import os, sys\n"
-            "sys.path.insert(0, os.environ['APP_ROOT'])\n"
-            "from app.session_gate import SessionBusy, ensure\n"
-            "try:\n"
-            "    ensure('other')\n"
-            "    print('free')\n"
-            "except SessionBusy:\n"
-            "    print('busy')\n"
-        )
-        env = os.environ.copy()
-        env["APP_ROOT"] = str(ROOT)
-        env["SESSION_PATH"] = str(tmp_path / "telegram")
-        completed = subprocess.run(
-            [sys.executable, "-c", code],
-            env=env,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        assert completed.stdout.strip() == "busy", completed.stderr
-    finally:
-        release()
+    monkeypatch.setattr(collector, "join_lock_active", lambda: True)
+    monkeypatch.setattr(
+        session_gate,
+        "borrow_session",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("сессию брать нельзя")),
+    )
+    with pytest.raises(RuntimeError, match="вступление"):
+        asyncio.run(chat_scan.run_guarded())
 
 
-def test_session_sqlite_busy(tmp_path, monkeypatch):
-    monkeypatch.setattr(settings, "session_path", tmp_path / "telegram")
-    path = tmp_path / "telegram.session"
-    holder = sqlite3.connect(path)
-    holder.execute("CREATE TABLE t(id INTEGER)")
-    holder.execute("BEGIN IMMEDIATE")
-    try:
-        assert session_sqlite_busy() is True
-    finally:
-        holder.rollback()
-        holder.close()
-    assert session_sqlite_busy() is False
-
-
-def test_script_does_not_open_session_when_inbox_is_up(monkeypatch):
+def test_script_refuses_while_join_lock(monkeypatch):
     module = _script()
-    monkeypatch.setattr(module, "probe_inbox", lambda: {"ok": True, "authorized": True})
+    monkeypatch.setattr(module, "join_lock_active", lambda: True)
 
-    def forbidden(*args, **kwargs):
-        raise AssertionError("сессию трогать нельзя")
+    async def forbidden(**kwargs):
+        raise AssertionError("прогон нельзя")
 
-    monkeypatch.setattr(module, "ensure", forbidden)
-    monkeypatch.setattr(module, "session_sqlite_busy", forbidden)
+    monkeypatch.setattr(module.chat_scan, "run_guarded", forbidden)
     assert module.main([]) == 3
 
 
-def test_script_delegates_to_running_inbox(monkeypatch):
+def test_script_borrows_session_instead_of_second_client(tmp_path, monkeypatch):
     module = _script()
-    monkeypatch.setattr(module, "probe_inbox", lambda: {"ok": True, "chat_rate": True, "authorized": True})
-    monkeypatch.setattr(module, "ensure", lambda role: (_ for _ in ()).throw(AssertionError("lock")))
+    session = tmp_path / "telegram.session"
+    session.write_text("", encoding="utf-8")
+    monkeypatch.setattr(module, "join_lock_active", lambda: False)
+    monkeypatch.setattr(module.settings, "telegram_api_id", 1)
+    monkeypatch.setattr(module.settings, "telegram_api_hash", "hash")
+    monkeypatch.setattr(module.settings, "session_path", tmp_path / "telegram")
 
-    class Response:
-        def __init__(self, payload):
-            self._payload = payload
+    seen: dict = {}
 
-        def raise_for_status(self):
-            return None
-
-        def json(self):
-            return self._payload
-
-    calls = {"post": 0}
-
-    class FakeHttp:
-        def post(self, url, params=None, timeout=None):
-            calls["post"] += 1
-            assert "/internal/chat-rate" in url
-            return Response({"ok": True, "started": True})
-
-        def get(self, url, timeout=None):
-            return Response(
-                {
-                    "ok": True,
-                    "running": False,
-                    "done": 0,
-                    "total": 0,
-                    "current": "",
-                    "error": "",
-                    "finished_at": "2026-10-11T00:00:00+00:00",
-                    "summary": {"saved": 0, "skipped": 0, "errors": [], "stopped": ""},
-                }
-            )
-
-    monkeypatch.setattr(module, "httpx", FakeHttp())
-    monkeypatch.setattr(module.time, "sleep", lambda seconds: None)
+    async def fake_guarded(**kwargs):
+        seen.update(kwargs)
+        return {"saved": 1, "skipped": 0, "errors": [], "stopped": ""}
 
     async def rows():
         return []
 
+    monkeypatch.setattr(module.chat_scan, "run_guarded", fake_guarded)
     monkeypatch.setattr(module, "_load_rows", rows)
-    assert module.main([]) == 0
-    assert calls["post"] == 1
+    assert module.main(["--only", "shop", "--limit", "2"]) == 0
+    assert seen["only"] == "shop"
+    assert seen["limit"] == 2
+    assert "make_client" not in module.__dict__
+
+
+def test_script_stops_when_listener_does_not_yield(tmp_path, monkeypatch):
+    module = _script()
+    session = tmp_path / "telegram.session"
+    session.write_text("", encoding="utf-8")
+    monkeypatch.setattr(module, "join_lock_active", lambda: False)
+    monkeypatch.setattr(module.settings, "telegram_api_id", 1)
+    monkeypatch.setattr(module.settings, "telegram_api_hash", "hash")
+    monkeypatch.setattr(module.settings, "session_path", tmp_path / "telegram")
+
+    async def timeout(**kwargs):
+        raise TimeoutError("Слушатель Telegram не отдал сессию")
+
+    monkeypatch.setattr(module.chat_scan, "run_guarded", timeout)
+    assert module.main([]) == 3
 
 
 def _script():

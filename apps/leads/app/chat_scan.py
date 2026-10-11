@@ -56,6 +56,40 @@ async def respect_flood(factory, *, sleep=asyncio.sleep, label: str = "", max_wa
             await sleep(wait)
 
 
+async def run_guarded(
+    *,
+    only: str = "",
+    limit: int = 0,
+    force: bool = False,
+    max_messages: int = 500,
+    pause: float = 1.5,
+    sleep=asyncio.sleep,
+) -> dict:
+    """Просит слушателя супервизора отдать сессию. Второй клиент не открывает.
+
+    Пока лежит data/JOIN_IN_PROGRESS, Telegram не трогает.
+    Клиент закрывается до того, как замок вернётся слушателю.
+    """
+    from app.collector import disconnect, join_lock_active
+    from app.servicekit import runtime_dir
+    from app.session_gate import borrow_session
+
+    if join_lock_active():
+        raise RuntimeError("Идёт вступление в чаты, сессию не открываю")
+    async with borrow_session(runtime_dir(), timeout=120):
+        try:
+            return await run_scan(
+                only=only,
+                limit=limit,
+                force=force,
+                max_messages=max_messages,
+                pause=pause,
+                sleep=sleep,
+            )
+        finally:
+            await disconnect()
+
+
 async def run_scan(
     *,
     only: str = "",
