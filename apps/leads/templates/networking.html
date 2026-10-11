@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Нетворкинг</title>
+  <link rel="stylesheet" href="/static/style.css?v=3">
+</head>
+<body>
+  <div class="wrap">
+    <h1>Нетворкинг</h1>
+    <p class="muted">Встречи в Петербурге, куда можно прийти и познакомиться с новой аудиторией: завтраки, митапы, конференции. Прошедшие даты убираются сами. Заявки из чатов здесь не лежат.</p>
+    {% include "nav.html" %}
+
+    {% if not events %}
+      <div class="empty">Пока пусто. Сбор идёт с календаря IT-мероприятий Петербурга и из открытых анонсов. Прошедшие даты сюда не попадают.</div>
+    {% endif %}
+    {% for event in events %}
+      <article class="card">
+        <div class="meta">
+          <strong>{{ event.when_label or event.starts_on }}</strong>
+          <span>{{ event.place }}</span>
+        </div>
+        <h2 class="block-title">{{ event.title }}</h2>
+        <p>{{ event.topic }}</p>
+        <p class="event-why">{{ event.why }}</p>
+        {% if event.url %}
+          <p class="meta"><a href="{{ event.url }}" target="_blank" rel="noreferrer">Открыть</a></p>
+        {% endif %}
+      </article>
+    {% endfor %}
+
+    <h2 class="block-title">Чаты, куда вступить самому</h2>
+    <p class="muted">Это кандидаты. Программа в них не входит: ссылку открываешь ты со своего Telegram. Пока не вступишь, заявки из чата в ленту не придут.</p>
+    {% for chat in chats %}
+      <article class="card">
+        <div class="meta">
+          <strong>@{{ chat.username }}</strong>
+          <span>{{ chat.title }}</span>
+        </div>
+        <p>{{ chat.why }}</p>
+        <p class="meta"><a href="{{ chat.url }}" target="_blank" rel="noreferrer">Открыть в Telegram</a></p>
+      </article>
+    {% endfor %}
+  </div>
+</body>
+</html>

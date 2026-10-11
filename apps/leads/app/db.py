@@ -41,6 +41,22 @@ CREATE TABLE IF NOT EXISTS hidden_keys (
     key TEXT PRIMARY KEY,
     created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source TEXT NOT NULL,
+    external_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    starts_on TEXT,
+    when_label TEXT,
+    place TEXT,
+    url TEXT,
+    topic TEXT,
+    why TEXT,
+    title_key TEXT,
+    created_at TEXT NOT NULL,
+    UNIQUE(source, external_id)
+);
 """
 
 
@@ -432,6 +448,75 @@ async def stats(db: aiosqlite.Connection) -> dict:
     )
     row = dict(await cur.fetchone())
     return {k: int(v or 0) for k, v in row.items()}
+
+
+async def upsert_event(db: aiosqlite.Connection, payload: dict) -> bool:
+    """Кладёт встречу. Та же дата и то же название из другого источника не дублируются."""
+    title_key = (payload.get("title_key") or "").strip()
+    starts_on = (payload.get("starts_on") or "").strip()
+    source = payload.get("source") or ""
+    external_id = str(payload.get("external_id") or "")
+    if not title_key or not starts_on or not external_id:
+        return False
+    cur = await db.execute(
+        "SELECT id, source, external_id FROM events WHERE title_key = ? AND starts_on = ?",
+        (title_key, starts_on),
+    )
+    twin = await cur.fetchone()
+    if twin and (twin["source"] != source or str(twin["external_id"]) != external_id):
+        return False
+    await db.execute(
+        """
+        INSERT INTO events (
+            source, external_id, title, starts_on, when_label, place, url, topic, why, title_key, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(source, external_id) DO UPDATE SET
+            title = excluded.title,
+            starts_on = excluded.starts_on,
+            when_label = excluded.when_label,
+            place = excluded.place,
+            url = excluded.url,
+            topic = excluded.topic,
+            why = excluded.why,
+            title_key = excluded.title_key
+        """,
+        (
+            source,
+            external_id,
+            payload.get("title") or "",
+            starts_on,
+            payload.get("when_label") or "",
+            payload.get("place") or "",
+            payload.get("url") or "",
+            payload.get("topic") or "",
+            payload.get("why") or "",
+            title_key,
+            _now(),
+        ),
+    )
+    await db.commit()
+    return True
+
+
+async def delete_past_events(db: aiosqlite.Connection, today: str) -> None:
+    await db.execute(
+        "DELETE FROM events WHERE starts_on IS NULL OR starts_on < ?",
+        (today,),
+    )
+    await db.commit()
+
+
+async def list_events(db: aiosqlite.Connection, today: str, limit: int = 40) -> list[dict]:
+    cur = await db.execute(
+        """
+        SELECT * FROM events
+        WHERE starts_on >= ?
+        ORDER BY starts_on, id
+        LIMIT ?
+        """,
+        (today, limit),
+    )
+    return [dict(row) for row in await cur.fetchall()]
 
 
 async def add_subscriber(db: aiosqlite.Connection, chat_id: int, username: str | None = None) -> None:

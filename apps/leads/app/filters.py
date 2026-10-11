@@ -19,16 +19,46 @@ def load_profile() -> dict:
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
 
+def _is_join_candidate(channel: dict) -> bool:
+    return str(channel.get("join") or "").strip().lower() == "candidate"
+
+
 def configured_channels() -> list[dict]:
+    """Чаты, которые уже слушаем. Кандидаты, куда Павел вступает сам, сюда не входят."""
     sources = load_sources()
     items: list[dict] = []
     seen: set[str] = set()
     for channel in sources.get("channels") or []:
+        if _is_join_candidate(channel):
+            continue
         username = (channel.get("username") or "").lstrip("@")
         if not username or username.lower() in seen:
             continue
         seen.add(username.lower())
         items.append({"username": username, "title": channel.get("title") or username})
+    return items
+
+
+def candidate_channels() -> list[dict]:
+    """Чаты, куда Павел вступает сам. Сборщик их не открывает и не входит."""
+    sources = load_sources()
+    items: list[dict] = []
+    seen: set[str] = set()
+    for channel in sources.get("channels") or []:
+        if not _is_join_candidate(channel):
+            continue
+        username = (channel.get("username") or "").lstrip("@")
+        if not username or username.lower() in seen:
+            continue
+        seen.add(username.lower())
+        items.append(
+            {
+                "username": username,
+                "title": channel.get("title") or username,
+                "why": (channel.get("why") or "").strip(),
+                "url": f"https://t.me/{username}",
+            }
+        )
     return items
 
 
@@ -342,7 +372,9 @@ ONE_OFF = re.compile(
 
 TENDER = re.compile(
     r"(тендер|44-\s*фз|223-\s*фз|zakupki\.gov|"
-    r"конкурсн\w+\s+документац|закупочн\w+\s+(документац|процедур))",
+    r"конкурсн\w+\s+документац|закупочн\w+\s+(документац|процедур)|"
+    r"госзакуп|электронн\w+\s+аукцион|запрос\s+котировок|"
+    r"извещени\w+\s+о\s+закупк|участ\w+\s+в\s+закупк)",
     re.IGNORECASE,
 )
 

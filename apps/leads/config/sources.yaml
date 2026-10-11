@@ -168,6 +168,86 @@ channels:
   - username: g00djob4all
     title: "Хорошая работа для тебя | Удаленка"
 
+  # Кандидаты, 2026-10-11. Клиенты ищут подрядчика: сайты, каталоги, маркетплейсы,
+  # автоматизация, боты. Павел вступает сам со своего Telegram. Сборщик их не входит.
+  # Чистые доски вакансий и чаты саморекламы фрилансеров сюда не ставил.
+  - username: biznes_chat
+    title: "Бизнес-чат предпринимателей"
+    join: candidate
+    why: "Предприниматели ищут партнёров и подрядчиков. Это не доска вакансий и не чат визиток."
+  - username: biznes_piter
+    title: "Бизнес | СПб"
+    join: candidate
+    why: "Предприниматели Петербурга. Можно поймать местный заказ на сайт, каталог или автоматизацию."
+  - username: marketplace_wbchat
+    title: "Wildberries поставщики"
+    join: candidate
+    why: "Селлеры Wildberries. В чате остаются вопросы владельцев кабинета: карточки, каталог, процессы."
+  - username: chatsellerov
+    title: "Чат селлеров WB и Ozon"
+    join: candidate
+    why: "Селлеры Wildberries и Ozon. Реклама товаров запрещена, остаются просьбы владельцев магазинов."
+  - username: chat_wildberries
+    title: "Продаём на Wildberries"
+    join: candidate
+    why: "Продавцы Wildberries просят помощь по кабинету. Это не биржа резюме."
+  - username: chat_ozon
+    title: "Продаём на Ozon"
+    join: candidate
+    why: "Продавцы Ozon ищут помощь по кабинету и карточкам."
+  - username: ozon_chat
+    title: "Ozon чат поставщиков"
+    join: candidate
+    why: "Большой чат поставщиков Ozon. Среди рабочих вопросов бывают заказы на карточки, каталог и связки."
+  - username: wb_help
+    title: "WB помощь поставщикам"
+    join: candidate
+    why: "Поставщики Wildberries просят помощь по кабинету и карточкам."
+  - username: ozon_community
+    title: "Озон поставщики"
+    join: candidate
+    why: "Чат поставщиков Ozon, реклама запрещена, меньше чужих визиток."
+  - username: marketplace_chat
+    title: "Чат поставщиков маркетплейсов"
+    join: candidate
+    why: "Поставщики обсуждают маркетплейсы и могут искать исполнителя на карточки и каталог."
+  - username: tilda_chat
+    title: "Tilda Community"
+    join: candidate
+    why: "Владельцы сайтов на Тильде. Часть заказов уводят в отдельный чат, но вопросы заказчиков остаются здесь."
+  - username: n8n_community
+    title: "n8n сообщество"
+    join: candidate
+    why: "Заказчики и практики n8n. Это отдельное сообщество, не каналы n8n_ru и n8nchat, которые уже в списке."
+  - username: zapier_ru
+    title: "Zapier"
+    join: candidate
+    why: "Русскоязычный чат Zapier: связки, сценарии и автоматизация."
+  - username: moysklad_chat
+    title: "МойСклад"
+    join: candidate
+    why: "Пользователи МойСклад. Среди них владельцы магазинов, которым нужна связка с сайтом, 1С или складом."
+  - username: tbilisi_it
+    title: "IT Тбилиси"
+    join: candidate
+    why: "Русскоязычные айтишники и предприниматели в Тбилиси. Это не вакансия в штат."
+  - username: it_serbia
+    title: "IT Сербия"
+    join: candidate
+    why: "Русскоязычный чат тех, кто в IT в Сербии или переезжает. Релоканты и небольшие команды ищут подрядчика."
+  - username: armenia_it
+    title: "IT Армения"
+    join: candidate
+    why: "Русскоязычный IT-чат Еревана и Армении."
+  - username: it_almaty
+    title: "IT Алматы"
+    join: candidate
+    why: "Разработчики и основатели в Алматы, русскоязычный чат."
+  - username: it_belgrade
+    title: "IT Белград"
+    join: candidate
+    why: "Русскоязычный IT-чат Белграда."
+
 # Пост проходит, если ищут исполнителя и в тексте есть услуга из кейсов.
 # Сейчас шире обычного: Павел калибрует ленту через «Не моё».
 keywords:

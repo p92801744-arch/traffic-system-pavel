@@ -9,8 +9,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app import boards, collector, db, lessons, mailings, notifier, scorer
-from app.filters import configured_channels, intake_hits, load_sources
+from app import boards, collector, db, lessons, mailings, networking, notifier, scorer
+from app.filters import candidate_channels, configured_channels, intake_hits, load_sources
 from app import reply
 from app.settings import ROOT, settings
 
@@ -44,6 +44,7 @@ async def lifespan(app: FastAPI):
     await conn.close()
     asyncio.create_task(_rescore_safe())
     asyncio.create_task(boards.poll_forever())
+    asyncio.create_task(networking.poll_forever())
     asyncio.create_task(_telegram_safe())
     await notifier.start()
     yield
@@ -215,6 +216,18 @@ async def rejects(request: Request):
         lessons=notes,
         leads=rows,
         page="rejects",
+    )
+
+
+@app.get("/networking", response_class=HTMLResponse)
+async def networking_page(request: Request):
+    events = await networking.upcoming()
+    return render(
+        request,
+        "networking.html",
+        events=events,
+        chats=candidate_channels(),
+        page="networking",
     )
 
 
