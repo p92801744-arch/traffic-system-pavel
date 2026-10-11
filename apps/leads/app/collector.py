@@ -36,6 +36,8 @@ log = logging.getLogger("leads.collector")
 _client: TelegramClient | None = None
 _listener_started = False
 _watch_ids: set[int] = set()
+# Одна корутина за раз ходит в Telegram: сбор истории, вход в чаты и рейтинг.
+work_lock = asyncio.Lock()
 
 # While scripts/join_chats.py runs, this file blocks the inbox from holding the session.
 JOIN_LOCK = ROOT / "data" / "JOIN_IN_PROGRESS"
@@ -321,6 +323,11 @@ async def _ingest_message(
 
 @_uses_session
 async def refresh_watch_list() -> dict:
+    async with work_lock:
+        return await _refresh_watch_list()
+
+
+async def _refresh_watch_list() -> dict:
     sources = load_sources()
     client = make_client()
     if not client.is_connected():
@@ -351,6 +358,11 @@ async def refresh_watch_list() -> dict:
 
 @_uses_session
 async def collect_history() -> dict:
+    async with work_lock:
+        return await _collect_history()
+
+
+async def _collect_history() -> dict:
     sources = load_sources()
     client = make_client()
     if not client.is_connected():

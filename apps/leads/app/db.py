@@ -57,6 +57,56 @@ CREATE TABLE IF NOT EXISTS events (
     created_at TEXT NOT NULL,
     UNIQUE(source, external_id)
 );
+
+CREATE TABLE IF NOT EXISTS chat_profiles (
+    chat_key TEXT PRIMARY KEY,
+    username TEXT,
+    channel_id TEXT,
+    title TEXT,
+    description TEXT,
+    pinned_text TEXT,
+    member INTEGER,
+    can_write INTEGER,
+    write_note TEXT,
+    read_error TEXT,
+    listed_join TEXT,
+    messages_collected INTEGER,
+    duplicate_share REAL,
+    repost_share REAL,
+    ad_share REAL,
+    bot_share REAL,
+    messages_per_day REAL,
+    spam_score REAL,
+    leads_fit3 INTEGER,
+    leads_rejected INTEGER,
+    tgstat_json TEXT,
+    rating INTEGER,
+    status_auto TEXT,
+    status_reason TEXT,
+    status_override TEXT,
+    next_card_at TEXT,
+    card_draft TEXT,
+    card_draft_note TEXT,
+    scanned_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS chat_rules (
+    chat_key TEXT PRIMARY KEY,
+    ads_allowed INTEGER,
+    cards_allowed INTEGER,
+    required_hashtag TEXT,
+    required_format TEXT,
+    allowed_days TEXT,
+    link_limit INTEGER,
+    contact_limit INTEGER,
+    max_frequency TEXT,
+    dm_banned INTEGER,
+    confident INTEGER,
+    conflict INTEGER,
+    needs_llm INTEGER,
+    llm_used INTEGER,
+    updated_at TEXT
+);
 """
 
 
@@ -580,3 +630,253 @@ async def list_subscribers(db: aiosqlite.Connection) -> list[int]:
 
 def session_path() -> Path:
     return Path(f"{settings.session_path}.session")
+
+
+def _flag(value) -> int | None:
+    if value is None:
+        return None
+    return 1 if value else 0
+
+
+def _days(value) -> str:
+    if isinstance(value, list):
+        return ",".join(str(item) for item in value if item)
+    return str(value or "")
+
+
+CHAT_SORTS = {
+    "rating": "p.rating",
+    "title": "p.title",
+    "status": "COALESCE(p.status_override, p.status_auto)",
+    "spam": "p.spam_score",
+    "leads": "p.leads_fit3",
+    "rejected": "p.leads_rejected",
+    "next": "p.next_card_at",
+    "chat": "lower(COALESCE(p.username, p.chat_key))",
+}
+
+
+async def lead_counts_for_chat(
+    db: aiosqlite.Connection,
+    username: str | None,
+    channel_id,
+) -> dict:
+    clauses: list[str] = []
+    args: list = []
+    name = (username or "").lstrip("@").lower()
+    if name:
+        clauses.append("lower(coalesce(channel_username, '')) = ?")
+        args.append(name)
+    cid = str(channel_id or "").strip()
+    if cid:
+        clauses.append("channel_id = ?")
+        args.append(cid)
+    if not clauses:
+        return {"fit3": 0, "rejected": 0}
+    cur = await db.execute(
+        f"""
+        SELECT
+            SUM(CASE WHEN fit >= 3 THEN 1 ELSE 0 END) AS fit3,
+            SUM(CASE WHEN status = 'reject' THEN 1 ELSE 0 END) AS rejected
+        FROM leads
+        WHERE {' OR '.join(clauses)}
+        """,
+        args,
+    )
+    row = await cur.fetchone()
+    return {"fit3": int(row[0] or 0), "rejected": int(row[1] or 0)}
+
+
+async def fresh_chat_keys(db: aiosqlite.Connection, *, hours: int) -> set[str]:
+    cutoff = datetime.now(timezone.utc).timestamp() - hours * 3600
+    cur = await db.execute(
+        "SELECT chat_key, scanned_at FROM chat_profiles WHERE scanned_at IS NOT NULL"
+    )
+    fresh: set[str] = set()
+    for row in await cur.fetchall():
+        try:
+            scanned = datetime.fromisoformat(row["scanned_at"])
+        except (TypeError, ValueError):
+            continue
+        if scanned.timestamp() >= cutoff:
+            fresh.add(row["chat_key"])
+    return fresh
+
+
+async def upsert_chat_observation(db: aiosqlite.Connection, record: dict) -> None:
+    """Пишет профиль и правила. Ручной статус не затирает."""
+    now = _now()
+    rules = record.get("rules") or {}
+    tgstat_payload = record.get("tgstat_json")
+    tgstat_text = json.dumps(tgstat_payload, ensure_ascii=False) if tgstat_payload else ""
+    await db.execute(
+        """
+        INSERT INTO chat_profiles (
+            chat_key, username, channel_id, title, description, pinned_text,
+            member, can_write, write_note, read_error, listed_join,
+            messages_collected, duplicate_share, repost_share, ad_share, bot_share,
+            messages_per_day, spam_score, leads_fit3, leads_rejected, tgstat_json,
+            rating, status_auto, status_reason, card_draft, card_draft_note, scanned_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(chat_key) DO UPDATE SET
+            username = excluded.username,
+            channel_id = excluded.channel_id,
+            title = excluded.title,
+            description = excluded.description,
+            pinned_text = excluded.pinned_text,
+            member = excluded.member,
+            can_write = excluded.can_write,
+            write_note = excluded.write_note,
+            read_error = excluded.read_error,
+            listed_join = excluded.listed_join,
+            messages_collected = excluded.messages_collected,
+            duplicate_share = excluded.duplicate_share,
+            repost_share = excluded.repost_share,
+            ad_share = excluded.ad_share,
+            bot_share = excluded.bot_share,
+            messages_per_day = excluded.messages_per_day,
+            spam_score = excluded.spam_score,
+            leads_fit3 = excluded.leads_fit3,
+            leads_rejected = excluded.leads_rejected,
+            tgstat_json = excluded.tgstat_json,
+            rating = excluded.rating,
+            status_auto = excluded.status_auto,
+            status_reason = excluded.status_reason,
+            card_draft = excluded.card_draft,
+            card_draft_note = excluded.card_draft_note,
+            scanned_at = excluded.scanned_at
+        """,
+        (
+            record["chat_key"],
+            record.get("username") or "",
+            record.get("channel_id") or "",
+            record.get("title") or record["chat_key"],
+            record.get("description") or "",
+            record.get("pinned_text") or "",
+            _flag(record.get("member")),
+            _flag(record.get("can_write")),
+            record.get("write_note") or "",
+            record.get("read_error") or "",
+            record.get("listed_join") or "",
+            int(record.get("messages_collected") or 0),
+            record.get("duplicate_share"),
+            record.get("repost_share"),
+            record.get("ad_share"),
+            record.get("bot_share"),
+            record.get("messages_per_day"),
+            record.get("spam_score"),
+            int(record.get("leads_fit3") or 0),
+            int(record.get("leads_rejected") or 0),
+            tgstat_text,
+            record.get("rating"),
+            record.get("status_auto") or "unknown",
+            record.get("status_reason") or "",
+            record.get("card_draft") or "",
+            record.get("card_draft_note") or "",
+            now,
+        ),
+    )
+    await db.execute(
+        """
+        INSERT INTO chat_rules (
+            chat_key, ads_allowed, cards_allowed, required_hashtag, required_format,
+            allowed_days, link_limit, contact_limit, max_frequency, dm_banned,
+            confident, conflict, needs_llm, llm_used, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(chat_key) DO UPDATE SET
+            ads_allowed = excluded.ads_allowed,
+            cards_allowed = excluded.cards_allowed,
+            required_hashtag = excluded.required_hashtag,
+            required_format = excluded.required_format,
+            allowed_days = excluded.allowed_days,
+            link_limit = excluded.link_limit,
+            contact_limit = excluded.contact_limit,
+            max_frequency = excluded.max_frequency,
+            dm_banned = excluded.dm_banned,
+            confident = excluded.confident,
+            conflict = excluded.conflict,
+            needs_llm = excluded.needs_llm,
+            llm_used = excluded.llm_used,
+            updated_at = excluded.updated_at
+        """,
+        (
+            record["chat_key"],
+            _flag(rules.get("ads_allowed")),
+            _flag(rules.get("cards_allowed")),
+            rules.get("required_hashtag"),
+            rules.get("required_format"),
+            _days(rules.get("allowed_days")),
+            rules.get("link_limit"),
+            rules.get("contact_limit"),
+            rules.get("max_frequency"),
+            _flag(rules.get("dm_banned")),
+            _flag(rules.get("confident")),
+            _flag(rules.get("conflict")),
+            _flag(rules.get("needs_llm")),
+            _flag(rules.get("llm_used")),
+            now,
+        ),
+    )
+    await db.commit()
+
+
+async def list_chat_profiles(
+    db: aiosqlite.Connection,
+    sort: str = "rating",
+    direction: str = "desc",
+) -> list[dict]:
+    column = CHAT_SORTS.get(sort, CHAT_SORTS["rating"])
+    order = "ASC" if direction == "asc" else "DESC"
+    cur = await db.execute(
+        f"""
+        SELECT p.*, r.ads_allowed, r.cards_allowed, r.required_hashtag, r.required_format,
+               r.allowed_days, r.link_limit, r.contact_limit, r.max_frequency, r.dm_banned,
+               r.confident, r.conflict, r.needs_llm, r.llm_used
+        FROM chat_profiles p
+        LEFT JOIN chat_rules r ON r.chat_key = p.chat_key
+        ORDER BY CASE WHEN {column} IS NULL THEN 1 ELSE 0 END, {column} {order}, p.chat_key
+        """
+    )
+    return [dict(row) for row in await cur.fetchall()]
+
+
+async def get_chat_profile(db: aiosqlite.Connection, chat_key: str) -> dict | None:
+    cur = await db.execute(
+        """
+        SELECT p.*, r.ads_allowed, r.cards_allowed, r.required_hashtag, r.required_format,
+               r.allowed_days, r.link_limit, r.contact_limit, r.max_frequency, r.dm_banned,
+               r.confident, r.conflict, r.needs_llm, r.llm_used
+        FROM chat_profiles p
+        LEFT JOIN chat_rules r ON r.chat_key = p.chat_key
+        WHERE p.chat_key = ?
+        """,
+        (chat_key,),
+    )
+    row = await cur.fetchone()
+    return dict(row) if row else None
+
+
+async def set_chat_override(db: aiosqlite.Connection, chat_key: str, override: str | None) -> None:
+    await db.execute(
+        "UPDATE chat_profiles SET status_override = ? WHERE chat_key = ?",
+        (override or None, chat_key),
+    )
+    await db.commit()
+
+
+async def write_card_plan(db: aiosqlite.Connection, updates: list[dict]) -> None:
+    for item in updates:
+        await db.execute(
+            """
+            UPDATE chat_profiles
+            SET next_card_at = ?, card_draft = ?, card_draft_note = ?
+            WHERE chat_key = ?
+            """,
+            (
+                item.get("next_card_at"),
+                item.get("card_draft") or "",
+                item.get("card_draft_note") or "",
+                item["chat_key"],
+            ),
+        )
+    await db.commit()

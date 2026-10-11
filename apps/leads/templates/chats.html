@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Чаты</title>
+  <link rel="stylesheet" href="/static/style.css?v=3">
+</head>
+<body>
+  <div class="wrap wide">
+    <h1>Чаты</h1>
+    <p class="muted">Рейтинг для визитки. Скрипт ничего не отправляет: черновик копируешь сам, если статус тебя устраивает. Одна визитка на чат раз в 10 дней, даты разнесены по циклу.</p>
+    {% include "nav.html" %}
+
+    <section class="lessons">
+      <p><strong>Можно визитку</strong> — чат в плане, дата в колонке «Следующая». <strong>Реклама запрещена</strong> — не пишем. <strong>Спам</strong> — много одинаковых постов, визитка потеряется. <strong>Неясно</strong> — нет явного разрешения или мы не в чате. Колонка «Почему» объясняет статус. Ручной статус перекрывает оценку и не сбрасывается следующим прогоном.</p>
+    </section>
+
+    {% if not chats %}
+      <div class="empty">Пока пусто. Рейтинг появится после прогона scripts\rate_chats.py на компьютере, где лежит сессия Telegram.</div>
+    {% else %}
+    <div class="table-wrap">
+      <table class="chats">
+        <thead>
+          <tr>
+            <th><a href="/chats?sort=chat&dir={{ 'asc' if sort == 'chat' and direction == 'desc' else 'desc' }}">Чат{% if sort == 'chat' %} {{ '↓' if direction == 'desc' else '↑' }}{% endif %}</a></th>
+            <th><a href="/chats?sort=rating&dir={{ 'asc' if sort == 'rating' and direction == 'desc' else 'desc' }}">Рейтинг{% if sort == 'rating' %} {{ '↓' if direction == 'desc' else '↑' }}{% endif %}</a></th>
+            <th><a href="/chats?sort=status&dir={{ 'asc' if sort == 'status' and direction == 'desc' else 'desc' }}">Статус{% if sort == 'status' %} {{ '↓' if direction == 'desc' else '↑' }}{% endif %}</a></th>
+            <th>Правила</th>
+            <th>Почему</th>
+            <th><a href="/chats?sort=leads&dir={{ 'asc' if sort == 'leads' and direction == 'desc' else 'desc' }}">≥3{% if sort == 'leads' %} {{ '↓' if direction == 'desc' else '↑' }}{% endif %}</a></th>
+            <th><a href="/chats?sort=rejected&dir={{ 'asc' if sort == 'rejected' and direction == 'desc' else 'desc' }}">Отказы{% if sort == 'rejected' %} {{ '↓' if direction == 'desc' else '↑' }}{% endif %}</a></th>
+            <th><a href="/chats?sort=spam&dir={{ 'asc' if sort == 'spam' and direction == 'desc' else 'desc' }}">Спам{% if sort == 'spam' %} {{ '↓' if direction == 'desc' else '↑' }}{% endif %}</a></th>
+            <th><a href="/chats?sort=next&dir={{ 'asc' if sort == 'next' and direction == 'desc' else 'desc' }}">Следующая{% if sort == 'next' %} {{ '↓' if direction == 'desc' else '↑' }}{% endif %}</a></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for chat in chats %}
+          <tr>
+            <td>
+              <div class="chat-title">{{ chat.title }}</div>
+              {% if chat.username %}
+                <a href="https://t.me/{{ chat.username }}" target="_blank" rel="noreferrer">@{{ chat.username }}</a>
+              {% else %}
+                <span class="muted">{{ chat.chat_key }}</span>
+              {% endif %}
+              {% if chat.listed_join == 'candidate' %}<div class="muted">кандидат, сборщик сам не вступает</div>{% endif %}
+              {% if chat.tg_participants %}<div class="muted">TGStat: {{ chat.tg_participants }} участников</div>{% endif %}
+              <details>
+                <summary class="muted">Описание и закреп</summary>
+                <div class="text">{{ chat.pinned_text or 'Закрепа нет.' }}</div>
+                <div class="text">{{ chat.description or 'Описания нет.' }}</div>
+              </details>
+            </td>
+            <td>{{ chat.rating if chat.rating is not none else '—' }}</td>
+            <td>
+              <div class="status-{{ chat.status }}">{{ chat.status_label }}</div>
+              <form class="override-form" method="post" action="/chats/{{ chat.chat_key }}/status">
+                <input type="hidden" name="next" value="/chats?sort={{ sort }}&dir={{ direction }}">
+                <select name="status" aria-label="Ручной статус {{ chat.title }}">
+                  <option value="" {% if not chat.status_override %}selected{% endif %}>как оценил скрипт</option>
+                  {% for code in statuses %}
+                    <option value="{{ code }}" {% if chat.status_override == code %}selected{% endif %}>{{ status_labels[code] }}</option>
+                  {% endfor %}
+                </select>
+                <button class="btn" type="submit">Сохранить</button>
+              </form>
+            </td>
+            <td>{{ chat.rules_line }}</td>
+            <td>{{ chat.reason }}</td>
+            <td>{{ chat.leads_fit3 or 0 }}</td>
+            <td>{{ chat.leads_rejected or 0 }}</td>
+            <td>{{ chat.spam_pct }}%</td>
+            <td>{{ chat.next_label or '—' }}</td>
+          </tr>
+          <tr>
+            <td colspan="9">
+              <details>
+                <summary>Черновик визитки</summary>
+                {% if chat.card_draft_note %}<p class="muted">{{ chat.card_draft_note }}</p>{% endif %}
+                <textarea class="draft-box" readonly>{{ chat.card_draft or 'Текста нет.' }}</textarea>
+                <form method="post" action="/chats/{{ chat.chat_key }}/draft">
+                  <input type="hidden" name="next" value="/chats?sort={{ sort }}&dir={{ direction }}">
+                  <button class="btn" type="submit">Обновить черновик</button>
+                </form>
+                <p class="muted">Отправки нет. Если текст подходит, скопируй его и отправь сам.</p>
+              </details>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+</body>
+</html>

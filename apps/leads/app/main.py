@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app import boards, collector, db, lessons, mailings, networking, notifier, scorer
+from app import boards, chat_rating, chat_scan, collector, db, lessons, mailings, networking, notifier, scorer
 from app.filters import candidate_channels, configured_channels, intake_hits, load_sources
 from app import reply
 from app.servicekit import current_role, embed_workers
@@ -234,6 +234,151 @@ async def networking_page(request: Request):
         chats=candidate_channels(),
         page="networking",
     )
+
+
+def _safe_chats_next(value: str) -> str:
+    value = (value or "").strip()
+    if value.startswith("/chats"):
+        return value
+    return "/chats"
+
+
+def _chat_view(row: dict) -> dict:
+    rules = chat_rating.rules_from_row(row)
+    status = chat_rating.effective_status(row)
+    try:
+        tgstat = json.loads(row.get("tgstat_json") or "")
+    except json.JSONDecodeError:
+        tgstat = {}
+    if not isinstance(tgstat, dict):
+        tgstat = {}
+    return {
+        **row,
+        "status": status,
+        "status_label": chat_rating.STATUS_LABELS.get(status, status),
+        "reason": chat_rating.display_reason(row),
+        "rules_line": chat_rating.rules_summary(rules),
+        "spam_pct": round(float(row.get("spam_score") or 0) * 100),
+        "next_label": (row.get("next_card_at") or "").replace("T", " ")[:16],
+        "tg_participants": tgstat.get("participants"),
+    }
+
+
+@app.get("/chats", response_class=HTMLResponse)
+async def chats_page(request: Request, sort: str = "rating", dir: str = "desc"):
+    if sort not in db.CHAT_SORTS:
+        sort = "rating"
+    direction = "asc" if dir == "asc" else "desc"
+    conn = await db.connect()
+    try:
+        rows = [_chat_view(row) for row in await db.list_chat_profiles(conn, sort, direction)]
+    finally:
+        await conn.close()
+    return render(
+        request,
+        "chats.html",
+        chats=rows,
+        sort=sort,
+        direction=direction,
+        page="chats",
+        statuses=chat_rating.STATUSES,
+        status_labels=chat_rating.STATUS_LABELS,
+    )
+
+
+@app.post("/chats/{chat_key}/status")
+async def chat_status(chat_key: str, status: str = Form(""), next: str = Form("/chats")):
+    if status not in {"", *chat_rating.STATUSES}:
+        return RedirectResponse("/chats", status_code=303)
+    conn = await db.connect()
+    try:
+        current = await db.get_chat_profile(conn, chat_key)
+        if current:
+            await db.set_chat_override(conn, chat_key, status or None)
+            await chat_rating.refresh_card_plan(conn)
+    finally:
+        await conn.close()
+    return RedirectResponse(_safe_chats_next(next), status_code=303)
+
+
+@app.post("/chats/{chat_key}/draft")
+async def chat_draft(chat_key: str, next: str = Form("/chats")):
+    conn = await db.connect()
+    try:
+        row = await db.get_chat_profile(conn, chat_key)
+        if row:
+            draft = chat_rating.draft_card(row.get("title") or "", chat_rating.rules_from_row(row))
+            await conn.execute(
+                "UPDATE chat_profiles SET card_draft = ?, card_draft_note = ? WHERE chat_key = ?",
+                (draft["text"], draft["note"], chat_key),
+            )
+            await conn.commit()
+    finally:
+        await conn.close()
+    return RedirectResponse(_safe_chats_next(next), status_code=303)
+
+
+def _localhost(request: Request) -> bool:
+    host = request.client.host if request.client else ""
+    return host in {"127.0.0.1", "::1", "localhost", "testclient"}
+
+
+@app.post("/internal/chat-rate")
+async def internal_chat_rate(
+    request: Request,
+    limit: int = 0,
+    only: str = "",
+    force: int = 0,
+    max_messages: int = 500,
+):
+    if not _localhost(request):
+        return HTMLResponse("только с этого компьютера", status_code=403)
+    if chat_scan.JOB.get("running"):
+        return {"ok": True, "started": False, "reason": "уже идёт"}
+    # Сразу помечаем прогон, иначе опрос успевает увидеть прошлый finished_at.
+    chat_scan.JOB.update(
+        running=True,
+        done=0,
+        total=0,
+        current="",
+        error="",
+        finished_at=None,
+        summary=None,
+    )
+    asyncio.create_task(
+        _run_chat_rate(limit=limit, only=only, force=bool(force), max_messages=max_messages)
+    )
+    return {"ok": True, "started": True}
+
+
+@app.get("/internal/chat-rate")
+async def internal_chat_rate_status(request: Request):
+    if not _localhost(request):
+        return HTMLResponse("только с этого компьютера", status_code=403)
+    job = chat_scan.JOB
+    return {
+        "ok": True,
+        "running": bool(job.get("running")),
+        "done": job.get("done") or 0,
+        "total": job.get("total") or 0,
+        "current": job.get("current") or "",
+        "error": job.get("error") or "",
+        "finished_at": job.get("finished_at"),
+        "summary": job.get("summary"),
+    }
+
+
+async def _run_chat_rate(**kwargs) -> None:
+    try:
+        await chat_scan.run_guarded(**kwargs)
+    except Exception as exc:
+        log.exception("Прогон рейтинга чатов")
+        chat_scan.JOB["error"] = str(exc)
+        chat_scan.JOB["running"] = False
+        if not chat_scan.JOB.get("finished_at"):
+            from datetime import datetime, timezone
+
+            chat_scan.JOB["finished_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 @app.get("/mailings", response_class=HTMLResponse)
@@ -461,4 +606,5 @@ async def health():
         "scorer": True,
         "jev": jev.enabled(),
         "bot": bool(settings.bot_token),
+        "chat_rate": True,
     }

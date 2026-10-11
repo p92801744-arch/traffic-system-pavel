@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_base_url: str = "https://api.deepseek.com"
     llm_model: str = "deepseek-chat"
+    tgstat_token: str = ""
 
     # Jev (TypeSafe System One) — оценка заявок. Ключ из console.typesafe.ai
     # Допускается и JEV_API_KEY, и TYPESAFE_API_KEY (ниже через validator не нужен —
