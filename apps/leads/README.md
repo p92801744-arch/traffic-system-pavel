@@ -20,6 +20,33 @@ python -m app
 
 Оценщик включён всегда: на каждой карточке пишет, почему заявку отдал или нет. Ключ `LLM_API_KEY` не нужен.
 
+## Автозапуск на Windows
+
+Один раз после входа в Windows поднимаются сайт, живая лента Telegram, сбор с бирж, встречи и бот. Если процесс падает, он запускается снова. Секреты остаются в `apps/leads/.env` и в файле сессии на этом компьютере, в git они не попадают.
+
+```powershell
+cd C:\Users\Павел\Desktop\Pavel
+git pull
+cd apps\leads
+powershell -ExecutionPolicy Bypass -File .\scripts\install-autostart.ps1
+```
+
+Проверка:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\status.ps1
+```
+
+Страница: http://127.0.0.1:8787. Журналы: `apps\leads\logs`.
+
+Снять автозапуск:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\uninstall-autostart.ps1
+```
+
+Пока автозапуск работает, второй `python -m app` не поднимай: замок не даст запустить две копии.
+
 ## Что внутри
 
 - `config/sources.yaml` — каналы, ключевые слова, стоп-слова

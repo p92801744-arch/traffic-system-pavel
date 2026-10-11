@@ -15,6 +15,7 @@ from app.settings import settings
 log = logging.getLogger("leads.notifier")
 
 _poll_task: asyncio.Task | None = None
+_digest_task: asyncio.Task | None = None
 _offset = 0
 _pending_reject: dict[int, int] = {}
 
@@ -409,13 +410,17 @@ async def _digest_loop() -> None:
         await asyncio.sleep(600)
 
 
-async def start() -> None:
-    global _poll_task
+def running() -> bool:
+    return _poll_task is not None and not _poll_task.done()
+
+
+async def start() -> bool:
+    global _poll_task, _digest_task
     if not enabled():
         log.warning("BOT_TOKEN пустой — уведомления в Telegram выключены")
-        return
-    if _poll_task and not _poll_task.done():
-        return
+        return False
+    if running():
+        return True
     try:
         me = await _post("getMe", {})
         log.info("Бот уведомлений: @%s", me.get("username"))
@@ -425,17 +430,26 @@ async def start() -> None:
             log.info("Webhook у бота не снимался — ок, если его не было")
     except Exception:
         log.exception("Не удалось достучаться до Bot API. Проверь BOT_TOKEN.")
-        return
+        return False
     _poll_task = asyncio.create_task(_poll_loop())
-    asyncio.create_task(_digest_loop())
+    if _digest_task is None or _digest_task.done():
+        _digest_task = asyncio.create_task(_digest_loop())
+    return True
+
+
+async def _cancel(task: asyncio.Task | None) -> None:
+    if task is None or task.done():
+        return
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
 
 
 async def stop() -> None:
-    global _poll_task
-    if _poll_task:
-        _poll_task.cancel()
-        try:
-            await _poll_task
-        except asyncio.CancelledError:
-            pass
-        _poll_task = None
+    global _poll_task, _digest_task
+    await _cancel(_poll_task)
+    await _cancel(_digest_task)
+    _poll_task = None
+    _digest_task = None

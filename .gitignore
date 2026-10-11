@@ -3,6 +3,8 @@ node_modules/
 .env
 apps/leads/.env
 apps/leads/.venv/
+apps/leads/logs/
+apps/leads/data/runtime/
 apps/leads/data/*.db
 apps/leads/data/*.json
 !apps/leads/data/reject-lessons.json
