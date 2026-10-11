@@ -505,10 +505,14 @@ def is_offer_card(text: str) -> bool:
 
 
 def smm_block(text: str) -> str | None:
-    """SMM берём только от 50 000 ₽ и с конкретикой системы. Иначе отказ."""
+    """SMM берём широко (решение Павла 2026-10-11): отсекаем только явно копеечный бюджет."""
     plain = _plain(text)
     if not SMM_TOPIC.search(plain):
         return None
+    amounts = rubles(plain)
+    if amounts and max(amounts) < smm_min_budget():
+        return f"smm с бюджетом ниже {smm_min_budget():,} ₽".replace(",", " ")
+    return None
     if re.search(r"не\s+(нужен |нужна |нужно |брать )?smm|не\s+смм", plain):
         return None
     specific = bool(SMM_SPECIFIC.search(plain))

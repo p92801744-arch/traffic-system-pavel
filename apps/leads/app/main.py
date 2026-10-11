@@ -127,12 +127,15 @@ def _decode_keywords(raw: str | None) -> list[str]:
         return []
 
 
+FEED_STATUSES = {"new", "take", "contacted", "reject"}
+
+
 @app.get("/", response_class=HTMLResponse)
 async def feed(
     request: Request,
     status: str | None = None,
     channel: str | None = None,
-    show_low: int = 0,
+    show_low: int | None = None,
 ):
     authorized = False
     try:
@@ -155,9 +158,9 @@ async def feed(
     try:
         leads = await db.list_leads(
             conn,
-            status="new",
+            status=status if status in FEED_STATUSES else "new",
             channel=channel or None,
-            hide_low=False,
+            hide_low=(show_low == 0) if show_low is not None else False,
         )
         for lead in leads:
             lead["keyword_list"] = _decode_keywords(lead.get("keywords"))
@@ -185,7 +188,7 @@ async def feed(
         leads=leads,
         counts=counts,
         channels=channel_items,
-        status="",
+        status=status if status in FEED_STATUSES else "",
         channel=channel or "",
         page="feed",
         scorer_on=True,
@@ -236,11 +239,23 @@ async def networking_page(request: Request):
     )
 
 
+def _safe_next(value: str | None, default: str = "/") -> str:
+    """Только относительный путь внутри панели: начинается с '/', но не с '//' или '/\\'."""
+    value = (value or "").strip()
+    if value.startswith("/") and not value.startswith(("//", "/\\")):
+        return value
+    return default
+
+
 def _safe_chats_next(value: str) -> str:
     value = (value or "").strip()
-    if value.startswith("/chats"):
-        return value
+    if value == "/chats" or value.startswith(("/chats?", "/chats/")):
+        return _safe_next(value, "/chats")
     return "/chats"
+
+
+def _lead_missing() -> HTMLResponse:
+    return HTMLResponse("Заявка не найдена", status_code=404)
 
 
 def _chat_view(row: dict) -> dict:
@@ -434,6 +449,13 @@ async def reply_page(request: Request, lead_id: int):
 
 @app.post("/leads/{lead_id}/reply")
 async def reply_revise(lead_id: int, instruction: str = Form(""), again: str = Form("")):
+    conn = await db.connect()
+    try:
+        exists = await db.get_lead(conn, lead_id)
+    finally:
+        await conn.close()
+    if not exists:
+        return _lead_missing()
     text = instruction.strip()
     if not text and again != "1":
         return RedirectResponse(f"/leads/{lead_id}/reply", status_code=303)
@@ -508,16 +530,18 @@ async def setup_sign_in(
 @app.post("/leads/{lead_id}/status")
 async def update_status(lead_id: int, status: str = Form(...), next: str = Form("/")):
     allowed = {"new", "take", "contacted"}
-    if status not in allowed:
-        return RedirectResponse("/", status_code=303)
     conn = await db.connect()
     try:
+        if not await db.get_lead(conn, lead_id):
+            return _lead_missing()
+        if status not in allowed:
+            return RedirectResponse("/", status_code=303)
         await db.set_status(conn, lead_id, status)
     finally:
         await conn.close()
     if status == "take":
         await reply.start_reply(lead_id)
-    return RedirectResponse(next or "/", status_code=303)
+    return RedirectResponse(_safe_next(next), status_code=303)
 
 
 @app.post("/leads/{lead_id}/reject")
@@ -528,16 +552,18 @@ async def reject_with_reason(
     next: str = Form("/"),
 ):
     text = (reason or comment).strip()
-    if not text:
-        return RedirectResponse(next or "/", status_code=303)
     conn = await db.connect()
     try:
         lead = await db.get_lead(conn, lead_id)
+        if not lead:
+            return _lead_missing()
+        if not text:
+            return RedirectResponse(_safe_next(next), status_code=303)
         await db.reject_lead(conn, lead_id, text)
     finally:
         await conn.close()
     lessons.add_lesson(text, lead_id, about=(lead or {}).get("text") or "")
-    return RedirectResponse(next or "/", status_code=303)
+    return RedirectResponse(_safe_next(next), status_code=303)
 
 
 _collect_lock = asyncio.Lock()
@@ -572,10 +598,12 @@ async def collect_now():
 async def delete_lead(lead_id: int, next: str = Form("/taken")):
     conn = await db.connect()
     try:
+        if not await db.get_lead(conn, lead_id):
+            return _lead_missing()
         await db.delete_leads(conn, [lead_id], remember=True)
     finally:
         await conn.close()
-    return RedirectResponse(next or "/taken", status_code=303)
+    return RedirectResponse(_safe_next(next), status_code=303)
 
 
 @app.post("/taken/clear")

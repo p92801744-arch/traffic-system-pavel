@@ -122,18 +122,22 @@ def test_project_contractor_is_not_staff():
     assert intake_hits(text, _sources())
 
 
-def test_smm_low_budget_and_vague_rejected():
-    low = (
-        "Ищу SMM. Бюджет 20 000 ₽. Нужен автопостинг статей в Дзен и контент-конвейер."
-    )
+def test_smm_accepted_broadly_only_explicit_low_budget_rejected():
+    # Решение Павла 2026-10-11: SMM берём широко, режем только явный бюджет ниже smm.min_budget_rub.
+    from app.filters import smm_min_budget
+
+    assert smm_min_budget() == 10000
+    low = "Ищу SMM. Бюджет 5 000 ₽. Нужен автопостинг статей в Дзен и контент-конвейер."
+    mid = "Ищу SMM. Бюджет 20 000 ₽. Нужен автопостинг статей в Дзен и контент-конвейер."
     vague = (
         "Ищу SMM-специалиста, бюджет 80 000 ₽. "
         "Нужен контент-план, рилс и копирайтинг для инстаграма."
     )
-    assert "50 000" in (smm_block(low) or "")
-    assert smm_block(vague)
+    no_budget = "Ищу SMM-специалиста на ведение соцсетей магазина, нужен контент и рилс."
+    assert "10 000" in (smm_block(low) or "")
     assert intake_hits(low, _sources(), assume_request=True) is None
-    assert intake_hits(vague, _sources(), assume_request=True) is None
+    for text in (mid, vague, no_budget):
+        assert smm_block(text) is None, text
 
 
 def test_smm_with_budget_and_specifics_passes():
@@ -211,6 +215,8 @@ def test_every_stored_lesson_repost_is_rejected():
 # Тексты, которые правила не классифицируют: обфусцированный спам, SEO и точечная 1С,
 # урезанный пост про систему новостей. Точный перепост всё равно режет learned_block.
 KNOWN_RULE_GAPS = {4434, 5197, 5080, 4681, 5132, 5128, 5129, 5143}
+# SMM-уроки: после решения брать SMM широко (2026-10-11) правила их не режут, перепост ловит learned_block.
+KNOWN_RULE_GAPS |= {4409, 4410, 4416, 4680, 4798, 4983, 4992, 5249}
 
 
 def test_rule_gaps_stay_inside_known_lessons():

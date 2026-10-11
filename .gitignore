@@ -14,6 +14,7 @@ apps/leads/data/telegram.string
 apps/leads/data/JOIN_IN_PROGRESS
 apps/leads/data/digest-day.txt
 apps/leads/data/mailings.yaml
+apps/leads/data/_inbox-*.txt
 apps/leads/data/*-session.json
 apps/leads/app/profi_board.json
 *.session
