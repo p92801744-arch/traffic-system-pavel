@@ -95,6 +95,7 @@ LEAD_EXTRA_COLUMNS = {
     "reply_text": "TEXT",
     "reply_state": "TEXT",
     "reply_error": "TEXT",
+    "bot_sent_at": "TEXT",
 }
 
 
@@ -234,6 +235,47 @@ async def get_lead(db: aiosqlite.Connection, lead_id: int) -> dict | None:
     cur = await db.execute("SELECT * FROM leads WHERE id = ?", (lead_id,))
     row = await cur.fetchone()
     return dict(row) if row else None
+
+
+async def claim_bot_send(db: aiosqlite.Connection, lead_id: int) -> bool:
+    """Забирает право отправить карточку. Второй вызов для той же заявки — False."""
+    cur = await db.execute(
+        """
+        UPDATE leads
+        SET bot_sent_at = ?
+        WHERE id = ? AND bot_sent_at IS NULL
+        """,
+        (_now(), lead_id),
+    )
+    await db.commit()
+    return cur.rowcount == 1
+
+
+async def release_bot_send(db: aiosqlite.Connection, lead_id: int) -> None:
+    await db.execute("UPDATE leads SET bot_sent_at = NULL WHERE id = ?", (lead_id,))
+    await db.commit()
+
+
+async def unsent_bot_leads(
+    db: aiosqlite.Connection,
+    since: str,
+    *,
+    min_fit: int = 3,
+    limit: int = 12,
+) -> list[dict]:
+    cur = await db.execute(
+        """
+        SELECT * FROM leads
+        WHERE bot_sent_at IS NULL
+          AND fit >= ?
+          AND status = 'new'
+          AND created_at >= ?
+        ORDER BY fit DESC, id ASC
+        LIMIT ?
+        """,
+        (min_fit, since, limit),
+    )
+    return [dict(row) for row in await cur.fetchall()]
 
 
 async def set_status(db: aiosqlite.Connection, lead_id: int, status: str) -> None:
