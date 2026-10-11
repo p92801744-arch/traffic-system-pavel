@@ -29,13 +29,20 @@ from app.filters import intake_hits, load_sources
 from app.notifier import send_lead
 from app.scorer import score_lead
 from app.servicekit import current_role, peek_telegram_authorized
-from app.settings import settings
+from app.settings import ROOT, settings
 
 log = logging.getLogger("leads.collector")
 
 _client: TelegramClient | None = None
 _listener_started = False
 _watch_ids: set[int] = set()
+
+# While scripts/join_chats.py runs, this file blocks the inbox from holding the session.
+JOIN_LOCK = ROOT / "data" / "JOIN_IN_PROGRESS"
+
+
+def join_lock_active() -> bool:
+    return JOIN_LOCK.exists()
 
 
 def make_client() -> TelegramClient:
@@ -121,6 +128,9 @@ async def _drop_password_hold() -> None:
 
 async def is_authorized() -> bool:
     if not settings.has_telegram_api:
+        return False
+    if join_lock_active():
+        log.info("Telegram на паузе: идёт скрипт вступления в чаты")
         return False
     # Страница не должна открывать сессию: её держит отдельный слушатель.
     if current_role() == "web":
