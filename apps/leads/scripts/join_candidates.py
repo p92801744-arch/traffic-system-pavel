@@ -34,6 +34,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from app.collector import make_client  # noqa: E402
+from app.session_gate import SessionBusy, ensure, release  # noqa: E402
 from app.settings import settings  # noqa: E402
 
 DEFAULT_ORDER = [
@@ -163,7 +164,25 @@ async def main(usernames: list[str], pause_min: int, pause_max: int) -> int:
         print("Сначала войди в ящик лидов на этом компьютере и подтверди код Telegram.")
         return 2
 
+    try:
+        ensure("join")
+    except SessionBusy as exc:
+        print(f"Сессию Telegram уже держит другой процесс ({exc}).")
+        print("Второй клиент не открываю. Дождись, пока ящик лидов или прогон рейтинга отпустит сессию.")
+        return 3
+
     client = make_client()
+    try:
+        return await _join_all(client, usernames, pause_min, pause_max)
+    finally:
+        try:
+            await client.disconnect()
+        except Exception:
+            pass
+        release()
+
+
+async def _join_all(client, usernames: list[str], pause_min: int, pause_max: int) -> int:
     if not client.is_connected():
         await client.connect()
     if not await client.is_user_authorized():
@@ -212,7 +231,6 @@ async def main(usernames: list[str], pause_min: int, pause_max: int) -> int:
     print("Закрыт / нужен инвайт:", ", ".join(f"@{u}" for u in report["private"]) or "—")
     print("Нет такого чата:", ", ".join(f"@{u}" for u in report["missing"]) or "—")
     print("Ошибка:", "; ".join(report["error"]) or "—")
-    await client.disconnect()
     return 0
 
 

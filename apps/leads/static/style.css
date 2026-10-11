@@ -326,6 +326,60 @@ details.reject-box > summary::-webkit-details-marker {
   margin: 8px 0;
 }
 
+.wrap.wide { max-width: 1180px; }
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+}
+
+table.chats {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  min-width: 860px;
+}
+
+table.chats th, table.chats td {
+  border-bottom: 1px solid var(--line);
+  padding: 10px 8px;
+  vertical-align: top;
+  text-align: left;
+}
+
+table.chats th a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+table.chats th a:hover { color: var(--text); }
+
+.status-active { color: var(--ok); font-weight: 650; }
+.status-no_ads { color: var(--reject); font-weight: 650; }
+.status-spam_drop { color: var(--take); font-weight: 650; }
+.status-unknown { color: var(--muted); font-weight: 650; }
+
+select, .draft-box {
+  background: #120f0c;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font: inherit;
+}
+
+.draft-box {
+  width: 100%;
+  min-width: 240px;
+  min-height: 140px;
+  white-space: pre-wrap;
+}
+
+.chat-title { font-weight: 650; }
+.override-form { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+
 textarea {
   width: 100%;
   background: #120f0c;

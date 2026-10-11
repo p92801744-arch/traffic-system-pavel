@@ -23,6 +23,7 @@ from app.contacts import extract_contact
 from app.filters import intake_hits, load_sources
 from app.notifier import send_lead
 from app.scorer import score_lead
+from app.session_gate import ensure
 from app.settings import settings
 
 log = logging.getLogger("leads.collector")
@@ -30,10 +31,13 @@ log = logging.getLogger("leads.collector")
 _client: TelegramClient | None = None
 _listener_started = False
 _watch_ids: set[int] = set()
+# Одна корутина за раз ходит в Telegram: сбор истории, вход в чаты и рейтинг.
+work_lock = asyncio.Lock()
 
 
 def make_client() -> TelegramClient:
     global _client
+    ensure("collector")
     if _client is None:
         settings.session_path.parent.mkdir(parents=True, exist_ok=True)
         _client = TelegramClient(
@@ -218,6 +222,11 @@ async def _ingest_message(
 
 
 async def refresh_watch_list() -> dict:
+    async with work_lock:
+        return await _refresh_watch_list()
+
+
+async def _refresh_watch_list() -> dict:
     sources = load_sources()
     client = make_client()
     if not client.is_connected():
@@ -247,6 +256,11 @@ async def refresh_watch_list() -> dict:
 
 
 async def collect_history() -> dict:
+    async with work_lock:
+        return await _collect_history()
+
+
+async def _collect_history() -> dict:
     sources = load_sources()
     client = make_client()
     if not client.is_connected():
@@ -301,6 +315,11 @@ async def collect_history() -> dict:
 
 async def author_profile(lead: dict) -> dict:
     """Шапка того, кто написал пост: человек или канал."""
+    async with work_lock:
+        return await _author_profile(lead)
+
+
+async def _author_profile(lead: dict) -> dict:
     empty = {"about": "", "kind": ""}
     username = (lead.get("sender_username") or "").lstrip("@")
     if not username:
