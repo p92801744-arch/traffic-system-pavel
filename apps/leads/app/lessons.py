@@ -57,7 +57,60 @@ def _words(text: str) -> list[str]:
     return re.findall(r"[a-zа-яё0-9-]{4,}", (text or "").lower().replace("ё", "е"))
 
 
+def reason_class(reason: str) -> str:
+    """Метка класса для калибровки. В текст поста как иголка не подставляется."""
+    plain = (reason or "").lower().replace("ё", "е")
+    if any(part in plain for part in ("болтовн", "реклам", "спам", "визит", "самореклам")):
+        return "promo"
+    if any(part in plain for part in ("штат", "сотрудник", "релокац")):
+        return "staff"
+    if any(part in plain for part in ("мелк", "чек", "разов")):
+        return "cheap"
+    if "не ии" in plain or "не автоматиза" in plain:
+        return "off-topic"
+    return "other"
+
+
+def _norm_lite(text: str) -> str:
+    lowered = (text or "").lower().replace("ё", "е")
+    lowered = re.sub(r"https?://\S+", " ", lowered)
+    lowered = re.sub(r"[^a-zа-я0-9]+", " ", lowered)
+    return re.sub(r"\s+", " ", lowered).strip()
+
+
+_SHINGLE_SKIP = _SKIP | _KEEP | {
+    "будет", "будут", "можно", "нужно", "работа", "работы", "работу",
+    "бизнес", "бизнеса", "бизнесу", "компании", "компания", "команда",
+    "команды", "команде", "привет", "которые", "который", "которая",
+    "через", "более", "сейчас", "также", "другие", "других", "клиент",
+    "клиента", "клиентов", "задача", "задачи", "задачу", "проект",
+    "проекта", "проекты", "человек", "человека", "людей", "нужен",
+    "нужна", "нужны", "ищем", "ищут", "вакансия", "удаленно", "удаленка",
+}
+
+
+def content_words(text: str) -> list[str]:
+    return [
+        word for word in _words(_norm_lite(text))
+        if len(word) >= 5 and word not in _SHINGLE_SKIP and not word.isdigit()
+    ]
+
+
+def about_shingles(text: str, n: int = 3) -> list[str]:
+    """Характерные тройки из текста отклонённого поста, не из комментария Павла."""
+    words = content_words(text)
+    if len(words) < n:
+        return []
+    seen: list[str] = []
+    for index in range(len(words) - n + 1):
+        gram = " ".join(words[index:index + n])
+        if gram not in seen:
+            seen.append(gram)
+    return seen
+
+
 def _needles(reason: str) -> list[str]:
+    """Оставлено для старых карточек. Фильтр эти иголки больше не применяет."""
     plain = (reason or "").strip().lower().replace("ё", "е")
     clause = re.split(r"[,.!/]", plain)[0].strip()
     needles: list[str] = []
@@ -106,13 +159,16 @@ def add_lesson(reason: str, lead_id: int | None = None, about: str = "") -> dict
                 payload = loaded
         except json.JSONDecodeError:
             pass
+    about_text = (about or "").strip()[:240]
     row = {
         "reason": reason,
         "lead_id": lead_id,
-        "about": (about or "").strip()[:240],
+        "about": about_text,
         "conclusion": conclude(reason, about),
         "instruction": proposed_instruction(reason),
+        "klass": reason_class(reason),
         "needles": _needles(reason),
+        "ngrams": about_shingles(about_text)[:8],
         "at": _now(),
     }
     payload["lessons"].append(row)
@@ -120,7 +176,7 @@ def add_lesson(reason: str, lead_id: int | None = None, about: str = "") -> dict
     return row
 
 
-def records(limit: int = 30) -> list[dict]:
+def records(limit: int | None = 30) -> list[dict]:
     if not LESSONS_PATH.exists():
         return []
     try:
@@ -131,18 +187,31 @@ def records(limit: int = 30) -> list[dict]:
     if not isinstance(items, list):
         return []
     rows = [item for item in items if isinstance(item, dict) and item.get("reason")]
-    return list(reversed(rows))[:limit]
+    ordered = list(reversed(rows))
+    if limit is None:
+        return ordered
+    return ordered[:limit]
 
 
 def learned_block(text: str) -> str | None:
-    """Если комментарий Павла уже закрыл такую заявку — вернуть вывод."""
-    plain = (text or "").lower().replace("ё", "е")
-    for row in records(40):
-        for needle in row.get("needles") or []:
-            if needle and needle in plain:
-                return row.get("conclusion") or row.get("reason")
-        reason = str(row.get("reason") or "")
-        tokens = [w for w in _words(reason) if w not in _SKIP and w not in _KEEP][:3]
-        if len(tokens) >= 2 and all(token in plain for token in tokens):
-            return row.get("conclusion") or reason
+    """Совпадение с текстом уже отклонённого поста, а не с комментарием Павла.
+
+    Срабатывает на то же начало объявления или на две характерные тройки слов
+    из поля about. Обобщённые причины («это не заказ, а болтовня») иголками не являются.
+    """
+    incoming_norm = _norm_lite(text)
+    if len(incoming_norm) < 40:
+        return None
+    incoming = set(about_shingles(text))
+    prefix = incoming_norm[:80]
+    for row in records(None):
+        about = str(row.get("about") or "")
+        if len(about) < 40:
+            continue
+        about_norm = _norm_lite(about)
+        if len(about_norm) >= 40 and about_norm[:80] == prefix:
+            return row.get("conclusion") or row.get("reason")
+        shared = incoming & set(about_shingles(about))
+        if len(shared) >= 2:
+            return row.get("conclusion") or row.get("reason")
     return None

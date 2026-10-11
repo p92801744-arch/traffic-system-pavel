@@ -12,11 +12,16 @@ from app.settings import settings
 log = logging.getLogger("leads.jev")
 
 PROFILE_BLURB = (
-    "Pavel Klyushin (Russia): paid freelance/project work only — AI agents, Telegram bots, "
-    "n8n/Make automation, websites, product-card pipelines for Wildberries/Ozon, 1C/CRM links, "
-    "knowledge bases with sources, document parsing into CRM. "
-    "Reject: staff jobs, marketplace managers/cabinets, SMM, one-off card design/infographics, "
-    "couriers, sales roles, courses, spam, freelancer self-promo, crypto."
+    "Pavel Klyushin (Russia) is a solo technical partner for business, a hands-on engineer. "
+    "He says «я», never «мы с командой». Paid project work: websites and catalogs, "
+    "n8n/Make/API automation, 1C and CRM (including Bitrix24), AI agents and bots, "
+    "knowledge bases, product-card pipelines. "
+    "SMM only if the budget is at least 50000 RUB AND the post names the channel and the system "
+    "(Dzen, auto-posting, content pipeline, traffic system). "
+    "Reject: reviews and case bragging, freelancer self-promo and business cards, "
+    "service listings (сделаю / от N ₽ за), staff hiring, tiny one-off edits, "
+    "magic-button requests, long tenders, copywriting-only or vague SMM, "
+    "marketplace managers, courses, spam, crypto."
 )
 
 

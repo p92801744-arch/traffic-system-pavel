@@ -283,6 +283,16 @@ input[type="text"], input[type="tel"], input[type="password"] {
   color: var(--muted);
 }
 
+.block-title {
+  font-size: 18px;
+  margin: 28px 0 8px;
+}
+
+.event-why {
+  margin: 8px 0 0;
+  font-size: 14px;
+}
+
 details.reject-box {
   display: inline-block;
   vertical-align: top;

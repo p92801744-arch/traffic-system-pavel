@@ -11,10 +11,12 @@ from email.utils import parsedate_to_datetime
 import httpx
 
 from app import db
-from app.filters import intake_hits, load_sources
+from app.filters import intake_hits, is_offer_card, load_sources
 from app.avito import fetch_orders as fetch_avito
+from app.freelance_ru import fetch_orders as fetch_freelance_ru
 from app.kwork import fetch_orders as fetch_kwork
 from app.profi import fetch_orders
+from app.weblancer import fetch_orders as fetch_weblancer
 from app.scorer import score_lead
 
 log = logging.getLogger("leads.boards")
@@ -99,6 +101,9 @@ def _fl_items(html: str) -> list[dict]:
 async def _save(item: dict, sources: dict) -> bool:
     if len(item["text"]) < 40:
         return False
+    # Kwork, Авито и другие доски отдают и заказы, и витрины услуг.
+    if is_offer_card(item["text"]):
+        return False
     hits = intake_hits(item["text"], sources, assume_request=True)
     if not hits:
         return False
@@ -160,6 +165,25 @@ async def poll_once() -> int:
             log.warning("FL.ru не отдал список заказов")
             fl_items = []
         for item in fl_items[:30]:
+            if await _save(item, sources):
+                saved += 1
+        # Хабр Фриланс (freelance.habr.com) закрыт 28 февраля 2025. Сборщик не добавляю.
+        # Канал @freelansim_ru остаётся в sources.yaml: это Telegram, не сайт.
+        # Тендерные площадки не подключаю.
+        try:
+            freelance_ru_items = await fetch_freelance_ru()
+        except Exception:
+            log.warning("Freelance.ru не отдал список заказов")
+            freelance_ru_items = []
+        for item in freelance_ru_items[:30]:
+            if await _save(item, sources):
+                saved += 1
+        try:
+            weblancer_items = await fetch_weblancer()
+        except Exception:
+            log.warning("Weblancer не отдал список заказов")
+            weblancer_items = []
+        for item in weblancer_items[:30]:
             if await _save(item, sources):
                 saved += 1
         try:

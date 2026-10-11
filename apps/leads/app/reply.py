@@ -46,6 +46,69 @@ def _algorithm() -> str:
     return text.strip()
 
 
+VOICE_REFERENCE = """
+Голос Павла — как в его живых письмах клиентам. Опечатки не копировать.
+«Мы с командой», «привлекаю команду» и ярлык «ИИ-специалист» в первое предложение не ставить:
+он технический партнёр для бизнеса и работает один.
+
+Как звучит, когда вводных мало (связка HR, Битрикс24 и 1С):
+Здравствуйте! Задача интересная, как раз плотно работаю с автоматизацией бизнес-процессов и подобными интеграциями.
+Так как вводных пока немного, предлагаю списаться и обсудить детали: какие именно процессы HR нужно закрыть и как устроена текущая связка Битрикс24 и 1С.
+Я технический партнёр для бизнеса, настраиваю логику и интеграции сам. Подробнее обо мне и кейсах можете посмотреть на сайте: https://pavelklyushin.ru/
+Напишите, какой HR-процесс сейчас отнимает больше всего времени. С него и начнём.
+
+Как звучит доказательство. Это единственный кейс, который можно называть, и только если заявка про карточки, каталог или визуал товара:
+Добрый день! Я работал с карточками товара, размещал аккумулятор на разных позициях, менял ракурс.
+Детально прорабатывать там не требовалось, поэтому таких примеров нет. Понимаю, какими инструментами закрыть задачу.
+Пришлите 1–2 товара и пример, который вам нравится. Сделаю пробную карточку.
+
+Как звучит конкретика, если этапы уже есть в заявке. Срок «5–6 дней» и «20 000 ₽» были ответом на одну заявку Евы. В другие письма эти цифры не переносить:
+Ева, здравствуйте! Меня зовут Павел. Систему можно реализовать несколькими способами, готов пообщаться и показать, как такую задачу закрыть.
+Этапы 1–2 из вашей заявки: поиск по таблице, выгрузка фото и сборка чистого ТЗ через ИИ.
+Сайт: https://pavelklyushin.ru/
+Пришлёте пример таблицы? Посмотрю и скажу, как это собрать.
+
+Живые обороты, которые можно узнавать: «задача интересная», «плотно работаю», «вводных пока немного», «предлагаю списаться и обсудить детали», «готов пообщаться», «на созвоне можем предметно обсудить», «пришлите пример».
+Не писать: «жду ваш ответ», «обход ограничений», «большой опыт» без факта, «сформируем стратегию».
+""".strip()
+
+
+def reply_problems(letter: str, task: str) -> list[str]:
+    """Проверка черновика: голос, конкретика заявки, один следующий шаг. Пустой список — письмо можно показать."""
+    text = (letter or "").strip()
+    low = text.lower().replace("ё", "е")
+    issues: list[str] = []
+    if not text:
+        return ["пустое письмо"]
+    if re.search(r"мы с командой|мы занимаемся|привлекаю команду|наша команда", low):
+        issues.append("пишет «мы», а Павел работает один")
+    if "pavel_ai_it" in low:
+        issues.append("старый канал pavel_AI_IT")
+    if "pavelklyushin.ru" not in low:
+        issues.append("нет сайта")
+    if "pasha_kvk" not in low:
+        issues.append("нет контакта @pasha_kvk")
+    head = low[:320]
+    if re.search(r"я\s+ии-?\s*специалист|я\s+ai-?\s*специалист", head):
+        issues.append("в начале ярлык «ИИ-специалист»")
+    if re.search(r"жду (ваш|вашего) ответ", low):
+        issues.append("пустое «жду ответа» вместо шага")
+    if re.search(r"обход\w* ограничени", low):
+        issues.append("формулировка про обход ограничений")
+    anchors = [
+        word for word in re.findall(r"[a-zа-я0-9-]{5,}", (task or "").lower().replace("ё", "е"))
+        if word not in {
+            "нужен", "нужна", "нужно", "нужны", "ищу", "ищем", "бюджет", "рублей",
+            "сделать", "добрый", "день", "здравствуйте", "проект", "задача",
+        }
+    ]
+    if anchors and not any(word in low for word in anchors[:12]):
+        issues.append("нет детали из заявки")
+    if "?" not in text and not re.search(r"пришл\w*|созвон|списать|напишите|пример", low):
+        issues.append("нет конкретного следующего шага")
+    return issues
+
+
 def _offers() -> str:
     lines = []
     for service in load_profile().get("services") or []:
@@ -68,9 +131,13 @@ def _prompt(lead: dict, about: str, about_kind: str, previous: str, instruction:
     parts = [
         _algorithm(),
         "",
+        VOICE_REFERENCE,
+        "",
         f"Кто пишет: Павел Клюшин. {who}",
         "Формулировки услуг, бери ту, что совпадает с задачей:",
         _offers(),
+        "Контакт в подписи: Telegram @pasha_kvk. Канал с материалами, если уместен: @paxa_terminator.",
+        "Перед ответом проверь: есть деталь именно этой заявки, один конкретный следующий шаг, нет «мы» и нет выдуманного кейса.",
         "",
         profile_note,
         f"Имя в карточке: {lead.get('sender_name') or ''}",
@@ -107,6 +174,9 @@ def _agent_failure(text: str) -> str | None:
     return None
 
 
+_HELLO = re.compile(r"(здравствуйте|добрый день|добрый вечер)", re.IGNORECASE)
+
+
 def _plain_letter(text: str) -> str:
     cleaned = (text or "").strip()
     if _agent_failure(cleaned):
@@ -117,11 +187,13 @@ def _plain_letter(text: str) -> str:
     cleaned = cleaned.strip()
     if len(cleaned) >= 2 and cleaned[0] == cleaned[-1] and cleaned[0] in "\"'«":
         cleaned = cleaned[1:-1].strip()
-    hello = cleaned.find("Здравствуйте")
-    if 0 < hello < 180:
-        cleaned = cleaned[hello:]
+    hello = _HELLO.search(cleaned)
+    if hello and 0 < hello.start() < 180:
+        line_start = cleaned.rfind("\n", 0, hello.start()) + 1
+        start = line_start if hello.start() - line_start <= 40 else hello.start()
+        cleaned = cleaned[start:]
     # Refuse model chatter that is not a letter.
-    if cleaned and "Здравствуйте" not in cleaned and "Павел Клюшин" not in cleaned:
+    if cleaned and not _HELLO.search(cleaned) and "Павел" not in cleaned:
         if len(cleaned) < 40 or cleaned.lower().startswith(("error", "actionrequired", "i ")):
             return ""
     return cleaned.strip()

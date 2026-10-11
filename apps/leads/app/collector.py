@@ -73,6 +73,16 @@ async def sign_in(phone: str, code: str, phone_code_hash: str, password: str | N
         await client.sign_in(password=password)
 
 
+def watched_channels(sources: dict) -> list[dict]:
+    """Чаты для входа и чтения. Кандидаты остаются Павлу: сам вступает со своего аккаунта."""
+    found: list[dict] = []
+    for channel in sources.get("channels") or []:
+        if str(channel.get("join") or "").strip().lower() == "candidate":
+            continue
+        found.append(channel)
+    return found
+
+
 def _source_spec(channel: dict) -> tuple[str | None, str | None, str]:
     title = (channel.get("title") or "").strip()
     username = (channel.get("username") or "").lstrip("@") or None
@@ -217,7 +227,7 @@ async def refresh_watch_list() -> dict:
 
     joined = 0
     errors: list[str] = []
-    for channel in sources.get("channels") or []:
+    for channel in watched_channels(sources):
         label = channel.get("username") or channel.get("invite") or channel.get("title") or "?"
         try:
             entity, _title = await resolve_source(client, channel)
@@ -250,7 +260,7 @@ async def collect_history() -> dict:
     skipped = 0
     errors: list[str] = []
 
-    for channel in sources.get("channels") or []:
+    for channel in watched_channels(sources):
         username, _invite, title = _source_spec(channel)
         label = username or title
         try:
