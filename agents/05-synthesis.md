@@ -77,7 +77,8 @@ AI/автоматизация  +  E-commerce/измеримый результа
 
 ## Доказательства
 - Кейс: магазин аккумуляторов
-- Telegram: @pavel_AI_IT
+- Telegram, канал с материалами: @paxa_terminator
+- Заявки: @pasha_kvk
 - YouTube: Pavel Klyushin | AI & Automation
 ```
 

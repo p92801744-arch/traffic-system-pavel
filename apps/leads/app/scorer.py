@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import re
 
-from app.filters import load_profile, not_my_job
+from app.filters import client_opens, is_hiring, load_profile, not_my_job
 from app.lessons import learned_block
 
 log = logging.getLogger("leads.scorer")
@@ -33,15 +33,21 @@ FREELANCE_AD = re.compile(
 
 SELLER = re.compile(
     r"(#помогу|#услуги|#приглашаю|обращайтесь|пишите в лс|пиши(те)? мне|"
-    r"портфолио в шапке|возьму на себя|я (создаю|разрабатываю|занимаюсь|делаю)|"
-    r"меня зовут .{0,40}я |мои услуг|открыта к сотрудничеству|"
-    r"пришлём предложение|напишите, что нужно)",
+    r"портфолио|возьму на себя|я (создаю|разрабатываю|занимаюсь|делаю|помогаю)|"
+    r"меня зовут .{0,60}я |мои услуг|открыта к сотрудничеству|"
+    r"пришлём предложение|напишите, что нужно|"
+    r"знаю человека|могу дать контакт)",
     re.IGNORECASE,
 )
 
+# Без голого «нужно» и без «разбор»: эти слова есть почти в каждой рекламе.
+# «ищу» не совпадает с «ищут» и «ищете».
 CLIENT_ASK = re.compile(
-    r"(ищ(у|ем)|нуж(ен|на|но|ны)|требует(ся)|кто (может|сделает|возьмёт)|"
-    r"заказ[:\s]|бюджет|оплачу|готова? платить|разобра|разбор)",
+    r"(?<![а-яё])("
+    r"ищу|ищем|нужен|нужна|нужны|требуется|требуются|"
+    r"кто (может|сделает|возьмёт|возьмет)|"
+    r"бюджет|оплачу|готова? платить"
+    r")(?![а-яё])",
     re.IGNORECASE,
 )
 
@@ -197,16 +203,8 @@ def first_pass(text: str) -> dict | None:
     if FREELANCE_AD.search(text):
         return _reject("Не отдавал бы: это реклама чужого бота, который ищет заказы за фрилансера.")
     off = not_my_job(text)
-    if off == "ищут живого помощника, не услугу":
-        return _reject("Не отдавал бы: ищут живого помощника на смену или в кабинет. Про ИИ и автоматизацию тут ничего нет.")
-    if off == "исполнитель рекламирует себя":
-        return _reject("Не отдавал бы: это исполнитель рекламирует себя, а не заказчик с задачей.")
-    if off == "реклама или спам":
-        return _reject("Не отдавал бы: это реклама или спам, а не заказ.")
-    if off == "реклама чужого сервиса":
-        return _reject("Не отдавал бы: это реклама чужого сервиса, а не заказчик, которому нужно что-то сделать.")
-    if off == "чужая вакансия или реклама":
-        return _reject("Не отдавал бы: это чужая вакансия или разовая работа дизайнера, не система.")
+    if off:
+        return _reject(f"Не отдавал бы: {off}.")
     learned = _reject_from_lessons(text)
     if learned:
         return learned
@@ -255,9 +253,9 @@ def _topic(text: str) -> tuple[str, str, str]:
         )
     if DZEN.search(text):
         return (
-            "продвижение в Дзене",
-            "статьи и продвижение в Дзене",
-            "статьи и продвижение в Дзене или похожем сервисе",
+            "система статей в Дзене",
+            "систему статей и автопостинга в Дзене",
+            "система статей и автопостинга в Дзене",
         )
     if WEB.search(text) and not CATALOG.search(text):
         return (
@@ -324,24 +322,23 @@ def judge(text: str, channel: str | None = None) -> dict:
             "Почти не отдавал: голосовые роботы и парсинг чужих сайтов ты не берёшь.",
         )
 
-    seller = bool(SELLER.search(text))
+    seller = bool(SELLER.search(text)) and not client_opens(text)
     client = bool(CLIENT_ASK.search(text))
-    staff = bool(STAFF.search(text))
+    staff = bool(STAFF.search(text) or is_hiring(text))
     ai = bool(AI_CORE.search(text) or _hits_core(text))
     shop = bool(SHOP.search(text) or CATALOG.search(text) or WEB.search(text) or DZEN.search(text))
     core = _hits_core(text)
     topic_nom, topic_acc, site_offer = _topic(text)
 
-    paid_brief = bool(re.search(r"бюджет|оплачу|готова? платить|кто (может|сделает)", text, re.IGNORECASE))
-
-    if staff and not paid_brief:
+    # Сначала визитка и штат. Слово «бюджет» в прайсе исполнителя заказ не создаёт.
+    if staff and not client_opens(text):
         return _score(
-            2,
+            1,
             "Не отдавал бы: это штатная вакансия, ищут сотрудника в команду, а не подрядчика на проект.",
             offer="не подходит",
         )
 
-    if seller and not paid_brief:
+    if seller:
         if ai:
             return _score(
                 1,
