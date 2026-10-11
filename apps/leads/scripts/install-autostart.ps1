@@ -19,10 +19,10 @@ if (-not (Test-Path -LiteralPath $Wscript)) {
 
 Set-Location -LiteralPath $LeadsRoot
 Write-Output "Каталог: $LeadsRoot"
-Write-Output "Останавливаю прежний запуск, если он был."
+Write-Output "Останавливаю прежний запуск. Подойдёт и системный Python, не только .venv."
 & $Python -m app.supervisor stop
 if ($LASTEXITCODE -ne 0) {
-    Write-Error "Ручной python -m app ещё работает. Закрой это окно и запусти установку ещё раз."
+    Write-Error "Старый ящик ещё работает и держит порт сайта. Сообщение выше называет процесс. Закрой его и запусти установку ещё раз."
 }
 
 $action = New-ScheduledTaskAction -Execute $Wscript -Argument "//B //Nologo `"$Vbs`"" -WorkingDirectory $LeadsRoot

@@ -405,7 +405,9 @@ def test_entrypoints_and_windows_scripts():
     vbs = (ROOT / "scripts" / "start-hidden.vbs").read_bytes()
     assert b"app.supervisor run" in vbs
     assert b", 0, True" in vbs
-    vbs.decode("ascii")
+    vbs_text = vbs.decode("ascii")
+    assert "WScript.Quit code" in vbs_text
+    assert "supervisor.log" in vbs_text
     install = (ROOT / "scripts" / "install-autostart.ps1").read_bytes()
     assert install.startswith(b"\xef\xbb\xbf")
     text = install.decode("utf-8-sig")
@@ -417,6 +419,7 @@ def test_entrypoints_and_windows_scripts():
     assert "RunLevel Limited" in text
     assert "LiteralPath" in text
     assert "start-hidden.vbs" in text
+    assert text.index("app.supervisor stop") < text.index("Start-ScheduledTask")
     uninstall = (ROOT / "scripts" / "uninstall-autostart.ps1").read_text(encoding="utf-8-sig")
     status = (ROOT / "scripts" / "status.ps1").read_text(encoding="utf-8-sig")
     assert "PavelLeadsInbox" in uninstall

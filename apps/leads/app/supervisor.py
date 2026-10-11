@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -37,7 +38,7 @@ from app.servicekit import (
     runtime_dir,
     write_owner,
 )
-from app.settings import ROOT
+from app.settings import ROOT, settings
 
 TASK_NAME = "PavelLeadsInbox"
 
@@ -337,28 +338,42 @@ class Supervisor:
 
     def run(self) -> int:
         try:
+            return self._run()
+        except Exception:
+            message = "Супервизор упал:\n" + traceback.format_exc()
+            try:
+                self._log(message)
+            except Exception:
+                append_supervisor_log(message)
+            return 1
+
+    def _run(self) -> int:
+        self._log(f"Автозапуск включается. Каталог {self.root}.")
+        try:
             self._instance = SingleInstance(self.runtime / "supervisor.lock")
         except AlreadyRunning:
             self._log("Автозапуск уже работает, второй экземпляр закрывается.")
             return 0
-        self._arm_signals()
-        self._job = WinJob.try_create()
         try:
+            self._arm_signals()
+            self._job = WinJob.try_create()
             self._instance.write_pid()
             write_owner("supervisor")
             self._clear_stop()
-            self._log(f"Автозапуск включён. Каталог {self.root}.")
+            self._log("Автозапуск включён.")
             while not self._stop_requested():
                 try:
                     self.step()
                 except Exception:
-                    self._log(traceback.format_exc())
+                    self._log("Сбой шага супервизора:\n" + traceback.format_exc())
                 self._sleeper(self.interval)
             self._log("Останавливаюсь.")
             return 0
         finally:
             try:
                 self.shutdown()
+            except Exception:
+                self._log("Остановка дочерних процессов сорвалась:\n" + traceback.format_exc())
             finally:
                 self._clear_stop()
                 clear_owner(os.getpid())
@@ -423,7 +438,11 @@ class Supervisor:
             delay = backoff_seconds(child.attempt, base=self.base_delay, cap=self.cap_delay)
             child.next_start = now + delay
             child.state = "backoff"
-            self._log(f"{child.spec.title} остановился с кодом {code}. Повтор через {delay:.0f} с.")
+            detail = f"{child.spec.title} остановился с кодом {code}."
+            if code == 3 and child.spec.name == "web":
+                detail += " Порт сайта уже занят другим запуском python -m app."
+            detail += f" Повтор через {delay:.0f} с."
+            self._log(detail)
             return
         if self._stopping or now < child.next_start:
             if child.state != "stopped":
@@ -583,37 +602,311 @@ def print_status() -> int:
     return code
 
 
-def stop_supervisor() -> int:
+_APP_MODULE_RE = re.compile(
+    r"(?:^|[\s\"])-m\s+app(?:\.(?:supervisor|runner|session_gate))?(?=\s|$)",
+    re.IGNORECASE,
+)
+
+
+def _same_path(text: str, root: Path) -> bool:
+    if not text:
+        return False
+    hay = text.replace("/", "\\").casefold()
+    needle = str(root).replace("/", "\\").casefold()
+    return needle in hay
+
+
+def select_project_processes(
+    processes: list[dict],
+    *,
+    root: Path,
+    port_pids: set[int],
+    own_pids: set[int],
+) -> list[dict]:
+    """Любой python -m app этого ящика: и из .venv, и системный, если он держит наш порт."""
+    chosen: list[dict] = []
+    for row in processes:
+        try:
+            pid = int(row.get("pid") or 0)
+        except (TypeError, ValueError):
+            continue
+        if pid <= 0 or pid in own_pids:
+            continue
+        command = str(row.get("command") or "")
+        executable = str(row.get("executable") or "")
+        if not _APP_MODULE_RE.search(command):
+            continue
+        if _same_path(command, root) or _same_path(executable, root) or pid in port_pids:
+            chosen.append({"pid": pid, "command": command, "executable": executable})
+    return chosen
+
+
+def parse_netstat_listeners(text: str, port: int) -> list[int]:
+    suffix = str(port)
+    found: list[int] = []
+    for line in text.splitlines():
+        parts = line.split()
+        if len(parts) < 4:
+            continue
+        local = parts[1]
+        host, sep, listed = local.rpartition(":")
+        if not sep or listed != suffix or not host:
+            continue
+        state = parts[3] if len(parts) >= 5 else ""
+        if "LISTEN" not in state.upper() and "ПРОСЛУШ" not in state.upper() and "СЛУШ" not in state.upper():
+            continue
+        try:
+            found.append(int(parts[-1]))
+        except ValueError:
+            continue
+    return list(dict.fromkeys(found))
+
+
+def _windows_processes() -> list[dict]:
+    script = (
+        "Get-CimInstance Win32_Process | "
+        "Select-Object ProcessId,ExecutablePath,CommandLine | "
+        "ConvertTo-Json -Compress"
+    )
+    raw = subprocess.check_output(
+        [
+            "powershell",
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; " + script,
+        ],
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=30,
+    )
+    return _parse_process_json(raw)
+
+
+def _parse_process_json(raw: str) -> list[dict]:
+    import json
+
+    raw = (raw or "").strip()
+    if not raw:
+        return []
+    data = json.loads(raw)
+    rows = data if isinstance(data, list) else [data]
+    parsed: list[dict] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        parsed.append(
+            {
+                "pid": int(row.get("ProcessId") or 0),
+                "command": str(row.get("CommandLine") or ""),
+                "executable": str(row.get("ExecutablePath") or ""),
+            }
+        )
+    return parsed
+
+
+def _posix_processes() -> list[dict]:
+    root = Path("/proc")
+    if not root.exists():
+        return []
+    rows: list[dict] = []
+    for entry in root.iterdir():
+        if not entry.name.isdigit():
+            continue
+        try:
+            command = (entry / "cmdline").read_bytes().replace(b"\x00", b" ").decode("utf-8", "replace").strip()
+            executable = os.readlink(entry / "exe")
+        except OSError:
+            continue
+        rows.append({"pid": int(entry.name), "command": command, "executable": executable})
+    return rows
+
+
+def list_processes() -> list[dict]:
+    try:
+        if os.name == "nt":
+            return _windows_processes()
+        return _posix_processes()
+    except Exception as exc:
+        print(f"Не смог прочитать список процессов: {exc}")
+        return []
+
+
+def _windows_listeners(port: int) -> list[int]:
+    raw = subprocess.check_output(
+        ["netstat", "-ano", "-p", "tcp"],
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=20,
+    )
+    return parse_netstat_listeners(raw, port)
+
+
+def _can_bind(port: int) -> bool:
+    import socket
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        try:
+            sock.bind((settings.host or "127.0.0.1", port))
+        except OSError:
+            return False
+    return True
+
+
+def port_owners(port: int) -> list[int] | None:
+    """None — порт свободен. Пустой список — занят, но хозяина не видно."""
+    try:
+        if os.name == "nt":
+            found = _windows_listeners(port)
+        else:
+            found = []
+            if not _can_bind(port):
+                return []
+    except Exception:
+        return None if _can_bind(port) else []
+    if os.name == "nt":
+        return found or None
+    return None
+
+
+def terminate_pid(pid: int) -> None:
+    """Завершить процесс. На Windows не через os.kill: тот же сигнал 0 роняет интерпретатор."""
+    if pid <= 0 or pid == os.getpid():
+        return
+    if os.name == "nt":
+        _windows_terminate(pid)
+        return
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except (OSError, SystemError, ProcessLookupError):
+        return
+
+
+def _windows_terminate(pid: int) -> None:
+    import ctypes
+    from ctypes import wintypes
+
+    process_terminate = 0x0001
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    kernel32.TerminateProcess.argtypes = [wintypes.HANDLE, wintypes.UINT]
+    kernel32.TerminateProcess.restype = wintypes.BOOL
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    handle = kernel32.OpenProcess(process_terminate, False, pid)
+    if not handle:
+        return
+    try:
+        kernel32.TerminateProcess(handle, 1)
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def _release_supervisor_lock() -> None:
     path = runtime_dir() / "supervisor.lock"
     if not lock_held(path):
-        print("Автозапуск не запущен.")
-        return 0
+        return
     owner = read_owner() or {}
-    if owner.get("kind") == "manual":
-        print("Сейчас ящик запущен вручную, командой python -m app. Автозапуск его не держит.")
-        print("Закрой то окно и повтори команду.")
-        return 1
-    (runtime_dir() / "stop.request").write_text("stop", encoding="ascii")
     pid = int(owner.get("pid") or 0)
-    for _ in range(50):
+    kind = str(owner.get("kind") or "")
+    if kind == "manual":
+        print("Сейчас ящик запущен вручную. Останавливаю этот процесс.")
+        if pid:
+            terminate_pid(pid)
+    else:
+        (runtime_dir() / "stop.request").write_text("stop", encoding="ascii")
+        for _ in range(50):
+            if not lock_held(path):
+                break
+            time.sleep(0.2)
+        if lock_held(path) and pid:
+            terminate_pid(pid)
+    for _ in range(25):
         if not lock_held(path):
-            print("Автозапуск остановлен.")
-            return 0
+            return
         time.sleep(0.2)
-    if pid and pid_alive(pid):
+
+
+def _command_for(pid: int, processes: list[dict]) -> str:
+    for row in processes:
         try:
-            os.kill(pid, signal.SIGTERM)
-        except OSError:
-            pass
-        time.sleep(0.5)
-    if lock_held(path):
-        print("Не удалось остановить автозапуск.")
+            if int(row.get("pid") or 0) == pid:
+                return str(row.get("command") or row.get("executable") or "")
+        except (TypeError, ValueError):
+            continue
+    return ""
+
+
+def stop_supervisor() -> int:
+    """Гасит супервизор и любой python -m app этого проекта, каким бы интерпретатором его ни запустили."""
+    _release_supervisor_lock()
+    processes = list_processes()
+    owners = port_owners(settings.port)
+    port_pids = set(owners or [])
+    targets = select_project_processes(
+        processes,
+        root=ROOT,
+        port_pids=port_pids,
+        own_pids={os.getpid()},
+    )
+    for row in targets:
+        print(f"Останавливаю прежний процесс {row['pid']}: {row['command']}")
+        terminate_pid(row["pid"])
+    if targets:
+        for _ in range(15):
+            owners = port_owners(settings.port)
+            if not owners:
+                break
+            time.sleep(0.2)
+    if lock_held(runtime_dir() / "supervisor.lock"):
+        print("Замок автозапуска всё ещё занят. Закрой окно python -m app и запусти установку ещё раз.")
         return 1
-    print("Автозапуск остановлен.")
-    return 0
+    if owners is None:
+        print("Прежний запуск остановлен.")
+        return 0
+    if not owners:
+        print(
+            f"Порт {settings.port} занят, но не удалось увидеть, кем. "
+            "Закрой окно, где запущен python -m app, и запусти установку ещё раз."
+        )
+        return 1
+    lines = []
+    for pid in owners:
+        if pid == os.getpid():
+            continue
+        command = _command_for(pid, processes) or "команду прочитать не удалось"
+        lines.append(f"Порт {settings.port} занят процессом {pid}: {command}")
+    if not lines:
+        print("Прежний запуск остановлен.")
+        return 0
+    print("\n".join(lines))
+    print("Этот процесс не удалось остановить. Закрой его и запусти установку ещё раз. Иначе сайт будет падать: порт занят.")
+    return 1
+
+
+def append_supervisor_log(text: str) -> None:
+    try:
+        path = logs_dir() / "supervisor.log"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        line = text if text.endswith("\n") else text + "\n"
+        with path.open("a", encoding="utf-8", newline="\n") as handle:
+            handle.write(f"{iso_now()} {line}")
+            handle.flush()
+    except Exception:
+        return
 
 
 def main(argv: list[str] | None = None) -> int:
+    try:
+        return _dispatch(argv)
+    except Exception:
+        append_supervisor_log("Супервизор упал до цикла:\n" + traceback.format_exc())
+        return 1
+
+
+def _dispatch(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     command = args[0] if args else "run"
     if command == "run":

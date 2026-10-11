@@ -49,18 +49,72 @@ def iso_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def pid_alive(pid: int) -> bool:
-    if pid <= 0:
-        return False
+# 259 — процесс ещё работает. 87 — такого pid нет. 5 — есть, но нет прав смотреть.
+_STILL_ACTIVE = 259
+_ERROR_ACCESS_DENIED = 5
+
+
+def interpret_windows_liveness(opened: bool, error: int, exit_code: int | None) -> bool:
+    """Результат OpenProcess + GetExitCodeProcess. Без os.kill: на Windows сигнал 0 ломает Python 3.11."""
+    if not opened:
+        return error == _ERROR_ACCESS_DENIED
+    if exit_code is None:
+        return error == _ERROR_ACCESS_DENIED
+    return exit_code == _STILL_ACTIVE
+
+
+def _query_windows_process(pid: int) -> tuple[bool, int, int | None]:
+    import ctypes
+    from ctypes import wintypes
+
+    process_query_limited_information = 0x1000
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    kernel32.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+    kernel32.GetExitCodeProcess.restype = wintypes.BOOL
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel32.CloseHandle.restype = wintypes.BOOL
+
+    handle = kernel32.OpenProcess(process_query_limited_information, False, pid)
+    if not handle:
+        return False, ctypes.get_last_error(), None
+    code = wintypes.DWORD()
+    try:
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
+            return True, ctypes.get_last_error(), None
+        return True, 0, int(code.value)
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def _windows_pid_alive(pid: int) -> bool:
+    opened, error, exit_code = _query_windows_process(pid)
+    return interpret_windows_liveness(opened, error, exit_code)
+
+
+def _posix_pid_alive(pid: int) -> bool:
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
         return False
     except PermissionError:
         return True
-    except OSError:
+    except (OSError, SystemError):
+        # SystemError здесь — сломанный os.kill, который на Windows ещё и роняет проверку.
         return False
     return True
+
+
+def pid_alive(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        if os.name == "nt":
+            return _windows_pid_alive(pid)
+        return _posix_pid_alive(pid)
+    except Exception:
+        return False
 
 
 def backoff_seconds(attempt: int, *, base: float = BACKOFF_BASE_SECONDS, cap: float = BACKOFF_CAP_SECONDS) -> float:

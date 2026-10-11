@@ -15,4 +15,15 @@ Else
 End If
 sh.CurrentDirectory = leads
 code = sh.Run(Chr(34) & exe & Chr(34) & " -m app.supervisor run", 0, True)
+If code <> 0 Then
+  On Error Resume Next
+  Dim logDir, logPath, ts
+  logDir = fso.BuildPath(leads, "logs")
+  If Not fso.FolderExists(logDir) Then fso.CreateFolder logDir
+  logPath = fso.BuildPath(logDir, "supervisor.log")
+  Set ts = fso.OpenTextFile(logPath, 8, True)
+  ts.WriteLine "supervisor exit " & code
+  ts.Close
+  On Error GoTo 0
+End If
 WScript.Quit code
