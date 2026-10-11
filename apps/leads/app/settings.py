@@ -20,11 +20,27 @@ class Settings(BaseSettings):
     sources_path: Path = ROOT / "config" / "sources.yaml"
     profile_path: Path = ROOT / "config" / "profile.yaml"
 
+    cursor_api_key: str = ""
+    reply_model: str = ""
+    agy_bin: str = ""
+
     llm_api_key: str = ""
     llm_base_url: str = "https://api.deepseek.com"
     llm_model: str = "deepseek-chat"
 
+    # Jev (TypeSafe System One) — оценка заявок. Ключ из console.typesafe.ai
+    # Допускается и JEV_API_KEY, и TYPESAFE_API_KEY (ниже через validator не нужен —
+    # читаем оба имени полями).
+    jev_api_key: str = ""
+    typesafe_api_key: str = ""
+    jev_base_url: str = "https://api.typesafe.ai"
+    jev_model: str = "jev-latest"
+
     bot_token: str = ""
+
+    @property
+    def jev_key(self) -> str:
+        return (self.jev_api_key or self.typesafe_api_key or "").strip()
 
     host: str = "127.0.0.1"
     port: int = 8787

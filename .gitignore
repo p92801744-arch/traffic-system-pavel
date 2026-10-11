@@ -8,12 +8,19 @@ apps/leads/data/*.json
 !apps/leads/data/reject-lessons.json
 apps/leads/data/*.session
 apps/leads/data/*.session-journal
+apps/leads/data/digest-day.txt
+apps/leads/data/mailings.yaml
+apps/leads/data/*-session.json
+apps/leads/app/profi_board.json
 *.session
 __pycache__/
 *.pyc
 
 # Отдельный проект, свой репозиторий: github.com/p92801744-arch/rusakb-gate
 rusakb-gate/
+
+# Локальный черновик другого продукта — не в этот репозиторий
+kovcheg/
 
 # Временные пробы
 tmp-ws.json

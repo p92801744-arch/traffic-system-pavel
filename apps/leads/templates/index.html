@@ -4,58 +4,46 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Ящик лидов</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v=2">
 </head>
 <body>
   <div class="wrap">
     <div class="top">
       <div>
         <h1>Ящик лидов</h1>
-        <div class="muted">Только этот компьютер · Telegram · заказы на ИИ и автоматизацию</div>
+        <div class="muted">Свежие сверху. Принятые уходят во «Взятые». Повтор той же вакансии не добавляется.</div>
       </div>
       <div class="stats">
         <span class="pill">всего {{ counts.total }}</span>
         <span class="pill">новые {{ counts.new_count }}</span>
-        <span class="pill">взять {{ counts.take_count }}</span>
+        <a class="pill" href="/taken">взять {{ counts.take_count }}</a>
         <span class="pill">высокий чек {{ counts.high_ticket_count }}</span>
       </div>
     </div>
 
+    {% include "nav.html" %}
+
     <div class="filters">
-      <a class="{{ 'active' if not status else '' }}" href="{{ feed_href(channel=channel, show_low=show_low) }}">Все живые</a>
-      <a class="{{ 'active' if status == 'new' else '' }}" href="{{ feed_href(status='new', channel=channel, show_low=show_low) }}">Новые</a>
-      <a class="{{ 'active' if status == 'take' else '' }}" href="{{ feed_href(status='take', channel=channel, show_low=show_low) }}">Взять</a>
-      <a class="{{ 'active' if status == 'contacted' else '' }}" href="{{ feed_href(status='contacted', channel=channel, show_low=show_low) }}">Откликнулся</a>
-      <a class="{{ 'active' if status == 'reject' else '' }}" href="{{ feed_href(status='reject', channel=channel, show_low=show_low) }}">Отклонены</a>
-      {% if show_low %}
-        <a href="{{ feed_href(status=status, channel=channel) }}">Скрыть слабые</a>
-      {% else %}
-        <a href="{{ feed_href(status=status, channel=channel, show_low=True) }}">Показать слабые</a>
-      {% endif %}
       <form class="inline" method="post" action="/collect">
-        <button class="btn primary" type="submit">Собрать сейчас</button>
+        <button class="btn primary" type="submit">Добавить новых</button>
       </form>
       {% if channels %}
       <details class="channels-box">
         <summary class="btn">Каналы{% if channel %} · @{{ channel }}{% endif %}</summary>
         <div class="channel-list">
           {% if channel %}
-            <a href="{{ feed_href(status=status, show_low=show_low) }}">Все каналы</a>
+            <a href="{{ feed_href(channel='') }}">Все каналы</a>
           {% endif %}
           {% for ch in channels %}
-            <a class="{{ 'active' if channel == ch.username else '' }}" href="{{ feed_href(status=status, channel=ch.username, show_low=show_low) }}" title="{{ ch.title }}">@{{ ch.username }}</a>
+            <a class="{{ 'active' if channel == ch.username else '' }}" href="{{ feed_href(channel=ch.username) }}" title="{{ ch.title }}">@{{ ch.username }}</a>
           {% endfor %}
         </div>
       </details>
       {% endif %}
     </div>
 
-    {% if lessons %}
-      <p class="muted">Уже учёл твои отказы: {{ lessons|join('; ') }}</p>
-    {% endif %}
-
     {% if not leads %}
-      <div class="empty">Пока пусто. Нажми «Собрать сейчас» или подожди новые посты в каналах.</div>
+      <div class="empty">Пока пусто. Нажми «Добавить новых» или подожди свежие посты и заказы с бирж.</div>
     {% endif %}
 
     {% for lead in leads %}
@@ -75,7 +63,6 @@
           {% else %}
             <span class="pill">заказ</span>
           {% endif %}
-          <span>{{ lead.status }}</span>
         </div>
         <div>
           {% for kw in lead.keyword_list %}
@@ -102,18 +89,16 @@
           {% if lead.write_url %}
             <a class="btn take" href="{{ lead.write_url }}" target="_blank" rel="noreferrer">Написать</a>
           {% endif %}
+          <a class="btn ok" href="/leads/{{ lead.id }}/reply">Написать отклик</a>
           <form class="inline" method="post" action="/leads/{{ lead.id }}/status">
             <input type="hidden" name="status" value="take">
-            <button class="btn take" type="submit">Взять</button>
-          </form>
-          <form class="inline" method="post" action="/leads/{{ lead.id }}/status">
-            <input type="hidden" name="status" value="contacted">
-            <button class="btn ok" type="submit">Откликнулся</button>
+            <input type="hidden" name="next" value="/">
+            <button class="btn primary" type="submit">Взять</button>
           </form>
           <details class="reject-box">
             <summary class="btn reject">Не моё</summary>
             <form class="reject-form" method="post" action="/leads/{{ lead.id }}/reject">
-              <p class="muted">Почему именно не подходит? Это пойдёт в оценку следующих заявок.</p>
+              <p class="muted">Напиши, что не так. Фикс запомнит заказ и комментарий и больше такие заявки не положит в ленту.</p>
               <div class="presets">
                 <button class="btn" type="submit" name="reason" value="штатная вакансия, ищут сотрудника, не клиента">Штат</button>
                 <button class="btn" type="submit" name="reason" value="не ИИ и не автоматизация">Не моя тема</button>
@@ -124,6 +109,10 @@
               <button class="btn reject" type="submit">Сохранить причину</button>
             </form>
           </details>
+          <form class="inline" method="post" action="/leads/{{ lead.id }}/delete" onsubmit="return confirm('Удалить эту заявку?');">
+            <input type="hidden" name="next" value="/">
+            <button class="btn reject" type="submit">Удалить</button>
+          </form>
         </div>
       </article>
     {% endfor %}

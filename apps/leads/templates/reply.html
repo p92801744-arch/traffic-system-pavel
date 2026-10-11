@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% if reply_state == 'writing' %}
+  <meta http-equiv="refresh" content="4">
+  {% endif %}
+  <title>Отклик</title>
+  <link rel="stylesheet" href="/static/style.css?v=3">
+</head>
+<body>
+  <div class="wrap">
+    {% include "nav.html" %}
+    <p><a href="{% if lead.status == 'take' or lead.status == 'contacted' %}/taken{% else %}/{% endif %}">← Назад</a></p>
+    <h1>Текст отклика</h1>
+    {% if reply_state == 'writing' %}
+      <p class="muted">{% if draft %}Antigravity дорабатывает текст. Страница обновится сама.{% else %}Antigravity пишет отклик. Страница обновится сама.{% endif %}</p>
+    {% elif reply_state == 'ready' %}
+      <p class="muted">Текст написал Antigravity. Скопируй или напиши, что поправить. Само никуда не уходит.</p>
+    {% elif reply_state == 'error' %}
+      <p class="error">{{ reply_error or 'Antigravity не написал текст.' }}</p>
+    {% endif %}
+    {% if lead.sender_name or lead.sender_username %}
+      <p class="muted">Автор: {{ lead.sender_name or '' }} {% if lead.sender_username %}@{{ lead.sender_username }}{% endif %}</p>
+    {% endif %}
+    {% if about %}
+      <p class="muted">{% if about_kind == 'channel' %}Шапка канала, в письмо не вставлена:{% else %}В профиле:{% endif %} {{ about }}</p>
+    {% endif %}
+    {% if draft %}
+    <textarea id="draft" rows="16">{{ draft }}</textarea>
+    <button class="btn primary" type="button" id="copy">Скопировать</button>
+    <form method="post" action="/leads/{{ lead.id }}/reply" id="revise">
+      <div class="field">
+        <label for="instruction">Что поправить</label>
+        <textarea id="instruction" name="instruction" rows="3" placeholder="Например: короче, без n8n, спроси про срок."></textarea>
+      </div>
+      <button class="btn primary" type="submit">Доработать</button>
+    </form>
+    {% elif reply_state != 'writing' %}
+    <form method="post" action="/leads/{{ lead.id }}/reply">
+      <input type="hidden" name="again" value="1">
+      <button class="btn primary" type="submit">Написать ещё раз</button>
+    </form>
+    {% endif %}
+    {% if lead.write_url %}
+      <a class="btn take" href="{{ lead.write_url }}" target="_blank" rel="noreferrer">Открыть диалог</a>
+    {% endif %}
+    {% if lead.url %}
+      <a class="btn" href="{{ lead.url }}" target="_blank" rel="noreferrer">Открыть пост</a>
+    {% endif %}
+  </div>
+  <script>
+    const copy = document.getElementById("copy");
+    if (copy) {
+      copy.addEventListener("click", async function () {
+        const box = document.getElementById("draft");
+        box.select();
+        try {
+          await navigator.clipboard.writeText(box.value);
+          this.textContent = "Скопировано";
+        } catch (err) {
+          document.execCommand("copy");
+          this.textContent = "Скопировано";
+        }
+      });
+    }
+    const revise = document.getElementById("revise");
+    if (revise) {
+      revise.addEventListener("submit", function () {
+        const btn = this.querySelector("button");
+        btn.disabled = true;
+        btn.textContent = "Дорабатываю…";
+      });
+    }
+  </script>
+</body>
+</html>

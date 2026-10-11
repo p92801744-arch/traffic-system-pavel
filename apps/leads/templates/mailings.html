@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Рассылка</title>
+  <link rel="stylesheet" href="/static/style.css?v=2">
+</head>
+<body>
+  <div class="wrap">
+    <h1>Рассылка</h1>
+    <p class="muted">Черновик визитки для одного чата. Отправка из программы не включена: сообщение уходит только когда ты сам его отправишь.</p>
+    {% include "nav.html" %}
+
+    <section class="lessons">
+      <div class="opinion-label">Как писать в чат и не словить ограничение</div>
+      <p>По правилам Telegram незапрошенная реклама, ссылки и одинаковые сообщения в разные чаты люди отмечают как спам. Жалобу смотрит модератор. После подтверждения аккаунт временно ограничивают: нельзя писать незнакомым и иногда нельзя писать в общие группы. Повтор приводит к более долгому ограничению. Источник: <a href="https://telegram.org/faq_spam" target="_blank" rel="noreferrer">telegram.org/faq_spam</a>.</p>
+      <p>Число сообщений, после которого срабатывает защита, Telegram не публикует. Обходить это число не нужно. Рабочая схема такая: один чат в неделю, текст каждый раз свой и по теме этого чата, и только там, где правила чата не запрещают визитку.</p>
+      <p>Не слать пачкой один и тот же текст. Не писать людям в личку из этой функции. Не отправлять с аккаунта, который читает ленту: его жалоба может остановить и сбор заявок.</p>
+    </section>
+
+    <form class="reject-form" method="post" action="/mailings">
+      <div class="field">
+        <label class="muted" for="chat">Чат</label>
+        <input id="chat" name="chat" type="text" placeholder="@chat или название" required>
+      </div>
+      <div class="field">
+        <label class="muted" for="theme">О чём чат</label>
+        <input id="theme" name="theme" type="text" placeholder="Например: магазины и карточки товаров">
+      </div>
+      <div class="field">
+        <label class="muted" for="text">Текст визитки под этот чат</label>
+        <textarea id="text" name="text" rows="8" required placeholder="Коротко, чем полезен именно здесь. Ссылка на сайт и канал — в конце."></textarea>
+      </div>
+      <button class="btn primary" type="submit">Сохранить черновик</button>
+    </form>
+
+    {% for draft in drafts %}
+      <article class="card">
+        <div class="meta">
+          <strong>{{ draft.chat }}</strong>
+          <span>{{ draft.theme }}</span>
+          <span>{{ (draft.at or '')[:16].replace('T', ' ') }}</span>
+        </div>
+        <div class="text">{{ draft.text }}</div>
+        <form method="post" action="/mailings/{{ loop.index0 }}/delete">
+          <button class="btn" type="submit">Убрать черновик</button>
+        </form>
+      </article>
+    {% endfor %}
+    {% if not drafts %}
+      <div class="empty">Черновиков нет. Сначала запиши чат и текст, отправку подключим отдельно, когда правила устроят.</div>
+    {% endif %}
+  </div>
+</body>
+</html>

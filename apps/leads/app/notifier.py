@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import html
 import logging
+import re
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -65,6 +67,7 @@ def _keyboard(lead: dict) -> dict:
     actions.append({"text": "Откликнуться", "callback_data": f"a:{lead['id']}"})
     actions.append({"text": "Не моё", "callback_data": f"n:{lead['id']}"})
     rows.append(actions)
+    rows.append([{"text": "Написать отклик", "callback_data": f"r:{lead['id']}"}])
     return {"inline_keyboard": rows}
 
 
@@ -75,6 +78,20 @@ async def _post(method: str, payload: dict) -> dict[str, Any]:
         if not data.get("ok"):
             raise RuntimeError(data.get("description") or resp.text)
         return data.get("result") or {}
+
+
+async def _answer_callback(callback_id: str, text: str, *, alert: bool = False) -> None:
+    try:
+        await _post(
+            "answerCallbackQuery",
+            {"callback_query_id": callback_id, "text": text, "show_alert": alert},
+        )
+    except Exception as exc:
+        msg = str(exc).lower()
+        if "too old" in msg or "query_id_invalid" in msg or "query is too old" in msg:
+            log.info("Кнопка бота уже протухла: %s", exc)
+            return
+        raise
 
 
 async def send_lead(lead: dict, *, min_fit: int = 3) -> None:
@@ -124,18 +141,58 @@ async def _handle_start(message: dict) -> None:
                 "«Открыть в Telegram» — исходный пост.\n"
                 "«Написать» — диалог с человеком, если у него есть юзернейм.\n"
                 "«Откликнуться» пока помечает карточку.\n"
-                "«Не моё» — спрошу, почему, и учту это в следующих оценках.\n\n"
+                "«Не моё» — спрошу, почему. Комментарий станет правилом для следующих заявок.\n"
+                "По будням утром пришлю сводку за день.\n\n"
                 "Вся лента по-прежнему на http://127.0.0.1:8787"
             ),
         },
     )
 
 
-async def _answer_callback(callback_id: str, text: str, *, alert: bool = False) -> None:
-    await _post(
-        "answerCallbackQuery",
-        {"callback_query_id": callback_id, "text": text, "show_alert": alert},
-    )
+async def _take_lead(lead_id: int) -> None:
+    conn = await db.connect()
+    try:
+        lead = await db.get_lead(conn, lead_id)
+        if not lead:
+            return
+        await db.set_status(conn, lead_id, "take")
+    finally:
+        await conn.close()
+    from app.reply import start_reply
+
+    await start_reply(lead_id)
+
+
+async def _reply_lead(lead_id: int, chat_id: int | None) -> None:
+    conn = await db.connect()
+    try:
+        lead = await db.get_lead(conn, lead_id)
+    finally:
+        await conn.close()
+    if not lead:
+        if chat_id:
+            await _post("sendMessage", {"chat_id": chat_id, "text": "Не нашёл заявку"})
+        return
+    from app.reply import start_reply
+
+    text = (lead.get("reply_text") or "").strip()
+    state = lead.get("reply_state") or ""
+    if state == "ready" and text and chat_id:
+        await _post(
+            "sendMessage",
+            {"chat_id": chat_id, "text": text, "disable_web_page_preview": True},
+        )
+        return
+    if state != "writing":
+        await start_reply(lead_id)
+    if chat_id:
+        await _post(
+            "sendMessage",
+            {
+                "chat_id": chat_id,
+                "text": "Пишу отклик. Нажми «Написать отклик» ещё раз через минуту — пришлю текст.",
+            },
+        )
 
 
 async def _handle_callback(query: dict) -> None:
@@ -153,47 +210,62 @@ async def _handle_callback(query: dict) -> None:
         await _answer_callback(callback_id, "Битая кнопка")
         return
 
-    conn = await db.connect()
-    try:
-        lead = await db.get_lead(conn, lead_id)
-        if action == "a":
-            if lead:
-                await db.set_status(conn, lead_id, "take")
+    # Сначала отвечаем Telegram — иначе кнопка «зависает» при долгой работе с БД.
+    if action == "a":
+        await _answer_callback(
+            callback_id,
+            "Взял. Отклик пишется, кнопка «Написать отклик» покажет текст.",
+        )
+        asyncio.create_task(_take_lead(lead_id))
+        return
+
+    if action == "n":
+        from_user = query.get("from") or {}
+        chat = (query.get("message") or {}).get("chat") or {}
+        chat_id = chat.get("id") or from_user.get("id")
+        conn = await db.connect()
+        try:
+            lead = await db.get_lead(conn, lead_id)
+        finally:
+            await conn.close()
+        if chat_id and lead:
+            _pending_reject[int(chat_id)] = lead_id
+            await _answer_callback(callback_id, "Напиши, почему не твоё")
+            await _post(
+                "sendMessage",
+                {
+                    "chat_id": chat_id,
+                    "text": "Почему эта заявка тебе не подходит? Одной фразой — это станет правилом для следующих.",
+                    "reply_markup": {"force_reply": True, "selective": True},
+                },
+            )
+        else:
+            await _answer_callback(callback_id, "Не нашёл заявку")
+        return
+
+    if action == "r":
+        chat = (query.get("message") or {}).get("chat") or {}
+        chat_id = chat.get("id") or (query.get("from") or {}).get("id")
+        await _answer_callback(callback_id, "Смотрю отклик…")
+        asyncio.create_task(_reply_lead(lead_id, int(chat_id) if chat_id else None))
+        return
+
+    if action == "w":
+        conn = await db.connect()
+        try:
+            lead = await db.get_lead(conn, lead_id)
+        finally:
+            await conn.close()
+        if lead and lead.get("write_url"):
+            await _answer_callback(callback_id, f"Пиши сюда: {lead['write_url']}", alert=True)
+        else:
             await _answer_callback(
                 callback_id,
-                "Пометил как «взять». Текст отклика подключим следующим шагом.",
+                "У автора нет публичного юзернейма. Открой пост и напиши ему оттуда.",
+                alert=True,
             )
-            return
-        if action == "n":
-            from_user = query.get("from") or {}
-            chat = (query.get("message") or {}).get("chat") or {}
-            chat_id = chat.get("id") or from_user.get("id")
-            if chat_id and lead:
-                _pending_reject[int(chat_id)] = lead_id
-                await _answer_callback(callback_id, "Напиши, почему не твоё")
-                await _post(
-                    "sendMessage",
-                    {
-                        "chat_id": chat_id,
-                        "text": "Почему эта заявка тебе не подходит? Одной фразой — это станет правилом для следующих.",
-                        "reply_markup": {"force_reply": True, "selective": True},
-                    },
-                )
-            else:
-                await _answer_callback(callback_id, "Не нашёл заявку")
-            return
-        if action == "w":
-            if lead and lead.get("write_url"):
-                await _answer_callback(callback_id, f"Пиши сюда: {lead['write_url']}", alert=True)
-            else:
-                await _answer_callback(
-                    callback_id,
-                    "У автора нет публичного юзернейма. Открой пост и напиши ему оттуда.",
-                    alert=True,
-                )
-            return
-    finally:
-        await conn.close()
+        return
+
     await _answer_callback(callback_id, "Ок")
 
 
@@ -211,15 +283,19 @@ async def _handle_update(update: dict) -> None:
             lead_id = _pending_reject.pop(int(chat_id))
             conn = await db.connect()
             try:
+                lead = await db.get_lead(conn, lead_id)
                 await db.reject_lead(conn, lead_id, text)
             finally:
                 await conn.close()
-            lessons.add_lesson(text, lead_id)
+            row = lessons.add_lesson(text, lead_id, about=(lead or {}).get("text") or "")
+            conclusion = (row or {}).get("conclusion") or f"Запомнил: «{text}»."
+            instruction = (row or {}).get("instruction") or ""
+            note = conclusion if not instruction else f"{conclusion}\n\nФиксик предлагает внести в инструкции: {instruction}"
             await _post(
                 "sendMessage",
                 {
                     "chat_id": chat_id,
-                    "text": f"Запомнил: «{text}». Такие заявки дальше буду отсеивать сильнее.",
+                    "text": note,
                 },
             )
             return
@@ -256,6 +332,83 @@ async def _poll_loop() -> None:
             await asyncio.sleep(3)
 
 
+def _moscow_now() -> datetime:
+    return datetime.now(timezone.utc) + timedelta(hours=3)
+
+
+async def _day_leads() -> list[dict]:
+    start = (_moscow_now() - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    since = (start - timedelta(hours=3)).isoformat(timespec="seconds")
+    conn = await db.connect()
+    try:
+        cur = await conn.execute(
+            """
+            SELECT channel_username, fit, text, url
+            FROM leads
+            WHERE fit >= 3 AND status != 'reject' AND COALESCE(message_date, created_at) >= ?
+            ORDER BY fit DESC, id DESC
+            LIMIT 15
+            """,
+            (since,),
+        )
+        return [dict(row) for row in await cur.fetchall()]
+    finally:
+        await conn.close()
+
+
+def _digest_text(rows: list[dict]) -> str:
+    day = (_moscow_now() - timedelta(days=1)).strftime("%d.%m")
+    if not rows:
+        return f"Сводка за {day}: живых заказов на ИИ не было."
+    lines = [f"Сводка за {day}: {len(rows)} заказ(ов) на ИИ.", ""]
+    for row in rows:
+        title = re.sub(r"\s+", " ", (row.get("text") or "")).strip()
+        if len(title) > 110:
+            title = title[:110] + "…"
+        channel = row.get("channel_username") or "чат"
+        lines.append(f"• {row.get('fit')}/5 · @{channel}")
+        lines.append(html.escape(title))
+        if row.get("url"):
+            lines.append(row["url"])
+        lines.append("")
+    lines.append("Лента: http://127.0.0.1:8787")
+    return "\n".join(lines).strip()
+
+
+async def send_morning_digest() -> None:
+    if not enabled():
+        return
+    conn = await db.connect()
+    try:
+        chats = await db.list_subscribers(conn)
+    finally:
+        await conn.close()
+    if not chats:
+        return
+    body = _digest_text(await _day_leads())
+    for chat_id in chats:
+        try:
+            await _post("sendMessage", {"chat_id": chat_id, "text": body, "disable_web_page_preview": True})
+        except Exception:
+            log.exception("Не удалось отправить утреннюю сводку в %s", chat_id)
+
+
+async def _digest_loop() -> None:
+    mark = settings.db_path.parent / "digest-day.txt"
+    while True:
+        now = _moscow_now()
+        today = now.date().isoformat()
+        sent = mark.read_text(encoding="utf-8").strip() if mark.exists() else ""
+        if 8 <= now.hour < 12 and sent != today:
+            try:
+                await send_morning_digest()
+                mark.write_text(today, encoding="utf-8")
+                log.info("Утренняя сводка отправлена")
+            except Exception:
+                log.exception("Утренняя сводка не ушла")
+        await asyncio.sleep(600)
+
+
 async def start() -> None:
     global _poll_task
     if not enabled():
@@ -266,10 +419,15 @@ async def start() -> None:
     try:
         me = await _post("getMe", {})
         log.info("Бот уведомлений: @%s", me.get("username"))
+        try:
+            await _post("deleteWebhook", {"drop_pending_updates": False})
+        except Exception:
+            log.info("Webhook у бота не снимался — ок, если его не было")
     except Exception:
         log.exception("Не удалось достучаться до Bot API. Проверь BOT_TOKEN.")
         return
     _poll_task = asyncio.create_task(_poll_loop())
+    asyncio.create_task(_digest_loop())
 
 
 async def stop() -> None:

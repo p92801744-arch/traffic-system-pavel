@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from telethon import TelegramClient, events, utils
 from telethon.errors import (
     ChannelPrivateError,
+    FloodWaitError,
     InviteHashExpiredError,
     InviteHashInvalidError,
     SessionPasswordNeededError,
@@ -107,6 +108,16 @@ def _in_watch(event) -> bool:
 
 async def resolve_source(client: TelegramClient, channel: dict):
     username, invite, title = _source_spec(channel)
+    raw_id = channel.get("channel_id")
+    if raw_id and not username and not invite:
+        from telethon.tl.types import PeerChannel
+
+        entity = await client.get_entity(PeerChannel(int(raw_id)))
+        try:
+            await client(JoinChannelRequest(entity))
+        except Exception:
+            pass
+        return entity, title or getattr(entity, "title", None) or str(raw_id)
     if invite:
         try:
             preview = await client(CheckChatInviteRequest(invite))
@@ -213,6 +224,11 @@ async def refresh_watch_list() -> dict:
             _watch(entity)
             joined += 1
             await asyncio.sleep(0.4)
+        except FloodWaitError as exc:
+            wait = int(getattr(exc, "seconds", 0) or 0)
+            errors.append(f"{label}: Telegram просит подождать {wait}с")
+            log.warning("Telegram ограничил вход в чаты (~%sс). Дальше не долблю.", wait)
+            break
         except Exception as exc:
             errors.append(f"{label}: {exc}")
             log.warning("Источник %s недоступен: %s", label, exc)
@@ -255,6 +271,14 @@ async def collect_history() -> dict:
                     skipped += 1
                 await asyncio.sleep(0.05)
             await asyncio.sleep(1.2)
+        except FloodWaitError as exc:
+            wait = int(getattr(exc, "seconds", 0) or 0)
+            errors.append(f"{label}: Telegram просит подождать {wait}с")
+            log.warning(
+                "Telegram ограничил ResolveUsername (~%sс). Остальные каналы в этом прогоне пропускаю.",
+                wait,
+            )
+            break
         except (UsernameNotOccupiedError, ChannelPrivateError, ValueError) as exc:
             errors.append(f"{label}: {exc}")
             log.warning("Канал %s недоступен: %s", label, exc)
@@ -263,6 +287,35 @@ async def collect_history() -> dict:
             log.exception("Ошибка сбора %s", label)
 
     return {"saved": saved, "skipped": skipped, "errors": errors}
+
+
+async def author_profile(lead: dict) -> dict:
+    """Шапка того, кто написал пост: человек или канал."""
+    empty = {"about": "", "kind": ""}
+    username = (lead.get("sender_username") or "").lstrip("@")
+    if not username:
+        return empty
+    try:
+        from telethon.tl.functions.channels import GetFullChannelRequest
+        from telethon.tl.functions.users import GetFullUserRequest
+        from telethon.tl.types import Channel, User
+
+        client = make_client()
+        if not client.is_connected():
+            await client.connect()
+        entity = await client.get_entity(username)
+        if isinstance(entity, User):
+            full = await client(GetFullUserRequest(entity))
+            about = (getattr(full.full_user, "about", None) or "").strip()
+            return {"about": about, "kind": "user"}
+        if isinstance(entity, Channel):
+            full = await client(GetFullChannelRequest(entity))
+            about = (getattr(full.full_chat, "about", None) or "").strip()
+            return {"about": about, "kind": "channel"}
+        return empty
+    except Exception:
+        log.info("Шапку профиля автора прочитать не удалось")
+        return empty
 
 
 async def start_listener() -> None:

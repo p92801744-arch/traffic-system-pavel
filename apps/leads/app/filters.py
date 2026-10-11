@@ -6,6 +6,7 @@ from pathlib import Path
 
 import yaml
 
+from app.lessons import learned_block
 from app.settings import settings
 
 
@@ -74,6 +75,43 @@ HELPER_JOB = re.compile(
     re.IGNORECASE,
 )
 
+# Отдельно: «ozon/wb» в REAL_SERVICE раньше спасало такие вакансии.
+MARKETPLACE_MANAGER = re.compile(
+    r"("
+    r"менеджер\w*.{0,48}(маркетплейс|wildberries|\bozon\b|\bозон\b|\bвб\b|\bwb\b)|"
+    r"(маркетплейс|wildberries|\bozon\b|\bозон\b|\bвб\b|\bwb\b).{0,48}менеджер|"
+    r"менеджер[-\s]?аналитик|"
+    r"помощник\w*.{0,24}(по\s+)?(ozon|озон|wildberries|вб|wb|маркетплейс)|"
+    r"ведени\w+\s+(работы\s+с\s+)?(кабинет|магазин).{0,40}(wildberries|\bozon\b|озон|вб|wb|маркетплейс)|"
+    r"кабинет(ом|а)?\s+(wildberries|\bozon\b|озон|вб|wb)|"
+    r"какого менеджера ищу|"
+    r"менеджер\w*\s+по\s+(ozon|озон|wildberries|вб|wb|маркетплейс)"
+    r")",
+    re.IGNORECASE,
+)
+
+MARKETPLACE_TOPIC = re.compile(
+    r"(маркетплейс|wildberries|вайлдберр?\w*|\bozon\b|\bозон\b|(?<![а-яё])вб(?![а-яё])|\bwb\b)",
+    re.IGNORECASE,
+)
+
+# Единственное, что оставляем из темы маркетплейсов.
+PRODUCT_CARDS = re.compile(
+    r"("
+    r"карточк\w+\s+товар|"
+    r"товарн\w+\s+карточ|"
+    r"созда(ть|ни[ея]|вать|ём|ем)\s+карточ|"
+    r"генерац\w+\s+(карточ|описан)|"
+    r"конвейер\w*\s+карточ|"
+    r"контент[-\s]?конвейер|"
+    r"контент[-\s]?завод|"
+    r"описани\w+\s+товар|"
+    r"карточк\w+\s+(для|на)\s+(wildberries|ozon|озон|вб|wb|маркетплейс)|"
+    r"заполн\w+\s+карточ"
+    r")",
+    re.IGNORECASE,
+)
+
 SELF_PROMO = re.compile(
     r"(я\s+[а-яё]{2,20}\s*[-—–]\s*техническ|"
     r"закрываю всю техничку|"
@@ -107,10 +145,15 @@ SEEK_WORD = re.compile(
 )
 
 REAL_SERVICE = re.compile(
-    r"(нейросет|chatgpt|\bgpt\b|\bn8n\b|автоматизац|"
+    r"(нейросет|chatgpt|\bgpt\b|\bn8n\b|автоматизац|make\.com|\bmake\b|"
+    r"cursor|курсор|wordpress|вордпрес|вордпресс|"
+    r"контент[-\s]?завод|контент[-\s]?конвейер|"
+    r"claude|gemini|deepseek|copilot|perplexity|\bllama\b|\bgrok\b|"
     r"(?<![а-яё])ии[-\s]?ассистент|(?<![а-яё])ии[-\s]?агент|чат[-\s]?бот|"
-    r"файнтюн|база знаний|разработ\w+\s+сайт|"
-    r"карточки товар|карточки для)",
+    r"файнтюн|база знаний|"
+    r"\bсайт\b|лендинг|интернет-магазин|трафик|"
+    r"\b1с\b|\b1c\b|\bcrm\b|дзен|"
+    r"карточки товар|карточки для|создан\w+\s+карточ)",
     re.IGNORECASE,
 )
 
@@ -120,6 +163,8 @@ SLAG = re.compile(
     r"водитель-курьер|"
     r"нейросети делают|опыт не нужен|первые деньги можно получить|"
     r"рилсмейкер|монтаж[её]р|ретуш[её]р|smm-менеджер|смм-менеджер|"
+    r"креатор|копирайтер|контекстолог|закупк\w+\s+реклам|"
+    r"kling|runway|midjourney|нейрофото|ии-видео|ai-видео|генерац\w+\s+видео|"
     r"менеджер по продажам|таргетолог|тильдолог|маркетолог|"
     r"занимаюсь разработкой|чем могу быть полезн|"
     r"делаем сайты и веб-приложения|наше агентское портфолио|"
@@ -143,21 +188,35 @@ SPAM = re.compile(
 )
 
 SYSTEM_BUILD = re.compile(
-    r"(конвейер|автоматизац|\bn8n\b|\bmake\b|"
+    r"(конвейер|автоматизац|\bn8n\b|\bmake\b|make\.com|"
+    r"cursor|курсор|wordpress|вордпрес|контент[-\s]?завод|"
     r"генерац\w+\s+(описан|карточек)|чат[-\s]?бот|(?<![а-яё])ии[-\s]?агент|"
-    r"файнтюн|база знаний|\b1с\b|\b1c\b)",
+    r"файнтюн|база знаний|\b1с\b|\b1c\b|\bсайт\b|лендинг|"
+    r"карточк\w+\s+товар|созда(ть|ни[ея]|вать)\s+карточ)",
     re.IGNORECASE,
 )
 
 
-def text_fingerprint(text: str) -> str:
-    """Один и тот же текст из разных чатов даёт один ключ."""
+def normalized_text(text: str) -> str:
+    """Один и тот же текст из разных чатов сходится к одной строке."""
     lowered = (text or "").lower().replace("ё", "е")
     lowered = re.sub(r"https?://\S+", " ", lowered)
     lowered = re.sub(r"[@#][a-zа-я0-9_]+", " ", lowered)
     lowered = re.sub(r"[^a-zа-я0-9]+", " ", lowered)
-    lowered = re.sub(r"\s+", " ", lowered).strip()
-    return hashlib.sha256(lowered.encode("utf-8")).hexdigest()[:32]
+    return re.sub(r"\s+", " ", lowered).strip()
+
+
+def text_fingerprint(text: str) -> str:
+    return hashlib.sha256(normalized_text(text).encode("utf-8")).hexdigest()[:32]
+
+
+def prefix_fingerprint(text: str) -> str:
+    """Начало объявления. Перепост с другим хвостом считается тем же."""
+    norm = normalized_text(text)
+    chunk = norm[:220]
+    if len(chunk) < 80:
+        return text_fingerprint(text)
+    return hashlib.sha256(chunk.encode("utf-8")).hexdigest()[:32]
 
 
 def is_spam(text: str) -> bool:
@@ -176,6 +235,11 @@ def not_my_job(text: str) -> str | None:
     text = _plain(text)
     if is_spam(text):
         return "реклама или спам"
+    # По маркетплейсам — только создание карточек товара, не кабинет и не менеджер.
+    if MARKETPLACE_TOPIC.search(text) and not PRODUCT_CARDS.search(text):
+        return "по маркетплейсам беру только создание карточек товара"
+    if MARKETPLACE_MANAGER.search(text) and not PRODUCT_CARDS.search(text):
+        return "ищут менеджера маркетплейса, не карточки"
     if SLAG.search(text) and not SYSTEM_BUILD.search(text):
         return "чужая вакансия или реклама"
     if HELPER_JOB.search(text) and not REAL_SERVICE.search(text):
@@ -185,13 +249,28 @@ def not_my_job(text: str) -> str | None:
     return None
 
 
-def intake_hits(text: str, sources: dict) -> list[str] | None:
-    """Проходит только «ищу / требуется» вместе с ключом услуги. Реклама и помощники — нет."""
+def too_cheap(text: str, floor: int = 5000) -> bool:
+    """Явная цена ниже порога. «от 80 000» и текст без суммы не режем."""
+    if re.search(r"\bот\s+\d", text or "", re.IGNORECASE):
+        return False
+    for raw in re.findall(r"(\d[\d\s]{0,8})\s*(?:₽|руб)", text or "", re.IGNORECASE):
+        digits = re.sub(r"\s+", "", raw)
+        if digits.isdigit() and int(digits) < floor:
+            return True
+    return False
+
+
+def intake_hits(text: str, sources: dict, *, assume_request: bool = False) -> list[str] | None:
+    """Проходит заказ с ключом услуги. В чатах нужно слово «ищу». На бирже карточка уже и есть заказ."""
     if hits_stopword(text, sources.get("stopwords") or []):
+        return None
+    if learned_block(text):
+        return None
+    if too_cheap(text):
         return None
     if not_my_job(text):
         return None
-    if not SEEK_WORD.search(text):
+    if not assume_request and not SEEK_WORD.search(text):
         return None
     hits = match_keywords(text, sources.get("keywords") or [])
     if not hits:

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Взятые</title>
+  <link rel="stylesheet" href="/static/style.css?v=2">
+</head>
+<body>
+  <div class="wrap">
+    <h1>Взятые</h1>
+    <p class="muted">Сюда попадают заявки, которые ты принял. Отклик пишется сразу. Кнопка «Написать отклик» показывает текст: его можно скопировать или отправить на доработку.</p>
+    {% include "nav.html" %}
+    {% if leads %}
+    <div class="filters">
+      <form class="inline" method="post" action="/taken/clear" onsubmit="return confirm('Удалить все взятые заявки?');">
+        <button class="btn reject" type="submit">Очистить все</button>
+      </form>
+    </div>
+    {% endif %}
+    {% if not leads %}
+      <div class="empty">Пока пусто. Кнопка «Взять» в ленте переносит заявку сюда.</div>
+    {% endif %}
+    {% for lead in leads %}
+      <article class="card">
+        <div class="meta">
+          <strong>@{{ lead.channel_username or 'канал' }}</strong>
+          <span>{{ lead.channel_title }}</span>
+          <span>{{ (lead.message_date or '')[:16].replace('T', ' ') }}</span>
+          {% if lead.status == 'contacted' %}
+            <span class="pill">откликнулся</span>
+          {% else %}
+            <span class="pill">взять</span>
+          {% endif %}
+          {% if lead.reply_state == 'ready' %}
+            <span class="pill">отклик готов</span>
+          {% elif lead.reply_state == 'writing' %}
+            <span class="pill">пишу отклик</span>
+          {% elif lead.reply_state == 'error' %}
+            <span class="pill">отклик не вышел</span>
+          {% endif %}
+        </div>
+        <div class="text">{{ lead.text }}</div>
+        <div class="actions">
+          {% if lead.url %}
+            <a class="btn" href="{{ lead.url }}" target="_blank" rel="noreferrer">Открыть в Telegram</a>
+          {% endif %}
+          <a class="btn ok" href="/leads/{{ lead.id }}/reply">Написать отклик</a>
+          {% if lead.status != 'contacted' %}
+          <form class="inline" method="post" action="/leads/{{ lead.id }}/status">
+            <input type="hidden" name="status" value="contacted">
+            <input type="hidden" name="next" value="/taken">
+            <button class="btn ok" type="submit">Откликнулся</button>
+          </form>
+          {% endif %}
+          <form class="inline" method="post" action="/leads/{{ lead.id }}/delete" onsubmit="return confirm('Удалить эту заявку?');">
+            <input type="hidden" name="next" value="/taken">
+            <button class="btn reject" type="submit">Удалить</button>
+          </form>
+        </div>
+      </article>
+    {% endfor %}
+  </div>
+</body>
+</html>

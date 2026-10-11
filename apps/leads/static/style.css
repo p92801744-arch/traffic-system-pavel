@@ -54,6 +54,15 @@ h1 {
 
 .muted { color: var(--muted); font-size: 14px; }
 
+.lessons {
+  border: 1px solid var(--line);
+  background: var(--bg-raise);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin: 0 0 16px;
+}
+.lessons p { margin: 6px 0 0; font-size: 14px; }
+
 .stats {
   display: flex;
   gap: 10px;
@@ -66,6 +75,28 @@ h1 {
   padding: 6px 10px;
   border-radius: 999px;
   font-size: 13px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.nav {
+  display: flex;
+  gap: 18px;
+  margin: 0 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.nav a {
+  color: var(--muted);
+  text-decoration: none;
+  padding: 8px 12px 10px;
+  border-bottom: 2px solid transparent;
+}
+
+.nav a.active {
+  color: var(--text);
+  border-bottom-color: var(--ochre);
+  font-weight: 650;
 }
 
 .filters {
@@ -274,6 +305,9 @@ details.reject-box > summary::-webkit-details-marker {
   background: var(--bg-raise);
   min-width: min(420px, 100%);
 }
+
+.reject-form label { display: block; margin-top: 10px; }
+.reject-form input[type="text"] { width: 100%; display: block; }
 
 .presets {
   display: flex;

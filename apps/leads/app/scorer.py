@@ -4,7 +4,7 @@ import logging
 import re
 
 from app.filters import load_profile, not_my_job
-from app.lessons import load_lessons
+from app.lessons import learned_block
 
 log = logging.getLogger("leads.scorer")
 
@@ -57,8 +57,7 @@ AI_CORE = re.compile(
     r"\bn8n\b|make\.com|интегр|автоматизац|\bcrm\b|amocrm|"
     r"битрикс|агентск|ai[- ]агент|ии[- ]агент|воронк|"
     r"\bии\b|искусственн\w+ интеллект|карточки товар|контент[- ]конвейер|"
-    r"каталог товар|ассистент|база знаний|\brag\b|1с|1c|"
-    r"wildberries|\bozon\b|\bвб\b|дзен)",
+    r"каталог товар|ассистент|база знаний|\brag\b|1с|1c|дзен)",
     re.IGNORECASE,
 )
 
@@ -98,9 +97,10 @@ DOCS = re.compile(
 )
 
 CATALOG = re.compile(
-    r"(карточки товар|описани\w+ товар|контент[- ]конвейер|каталог товар|"
-    r"ассортимент|номенклатур|seo.?описан|прайс поставщик|"
-    r"wildberries|\bozon\b|маркетплейс|\bвб\b|карточки (для |на )?(wb|вб|ozon|озон))",
+    r"(карточки товар|товарн\w+ карточ|описани\w+ товар|контент[- ]конвейер|"
+    r"каталог товар|ассортимент|номенклатур|seo.?описан|прайс поставщик|"
+    r"созда(ть|ни[ея]|вать)\s+карточ|"
+    r"карточки (для |на )?(wb|вб|ozon|озон|wildberries|маркетплейс))",
     re.IGNORECASE,
 )
 
@@ -184,18 +184,10 @@ def _score(fit: int, why: str, *, paid: bool = False, high: bool = False, offer:
 
 
 def _reject_from_lessons(text: str) -> dict | None:
-    lowered = text.lower()
-    for reason in load_lessons():
-        key = reason.lower().strip()
-        if len(key) < 8 or len(key) > 80:
-            continue
-        tokens = [t for t in key.replace(",", " ").split() if len(t) > 4]
-        if tokens and all(t in lowered for t in tokens[:3]):
-            return _reject(
-                f"Не отдавал бы: это похоже на прошлый отказ («{reason}»). "
-                "Ты уже сказал, что такие заявки не твои."
-            )
-    return None
+    blocked = learned_block(text)
+    if not blocked:
+        return None
+    return _reject(f"Не отдавал бы: {blocked}")
 
 
 def first_pass(text: str) -> dict | None:
@@ -251,7 +243,11 @@ def _topic(text: str) -> tuple[str, str, str]:
             "связку с 1С",
             "связка ваших приложений, включая 1С, без ручного переноса",
         )
-    if re.search(r"wildberries|\bozon\b|маркетплейс|\bвб\b", text, re.IGNORECASE):
+    if CATALOG.search(text) and re.search(
+        r"wildberries|\bozon\b|маркетплейс|\bвб\b|\bwb\b|карточ",
+        text,
+        re.IGNORECASE,
+    ):
         return (
             "карточки для маркетплейса",
             "карточки для Wildberries или Ozon",
@@ -423,5 +419,25 @@ def score_with_profile(text: str, channel: str | None, judgement: dict) -> dict:
 
 
 async def score_lead(text: str, channel: str | None = None) -> dict:
-    """Оценщик включён: всегда возвращает балл и мнение."""
+    """Сначала жёсткий локальный отсев, затем Jev (если есть ключ), иначе правила."""
+    quick = first_pass(text)
+    if quick:
+        return quick
+
+    from app import jev
+
+    if jev.enabled():
+        try:
+            result = await jev.score_lead_text(text, channel)
+            # Подмешиваем оффер из локальной темы, если Jev не уточнил карточки.
+            if result.get("suggested_offer") == (
+                "разбор в Telegram: бот, база знаний, 1С, каталог или Дзен — что ближе к боли"
+            ):
+                _nom, _acc, site_offer = _topic(text)
+                if site_offer and site_offer != "не подходит":
+                    result = {**result, "suggested_offer": site_offer}
+            return result
+        except Exception:
+            log.exception("Jev не ответил — локальная оценка")
+
     return judge(text, channel)

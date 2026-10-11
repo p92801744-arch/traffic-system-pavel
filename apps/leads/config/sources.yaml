@@ -15,8 +15,6 @@ channels:
     title: Remote RU
 
   # Добавил Павел
-  - url: https://t.me/+R_KxUQG5hYo5ZjAy
-    title: Приватный чат (инвайт)
   - username: biznes_klient_rabota
     title: Бизнес клиент работа
   - username: bizness_spb
@@ -33,27 +31,151 @@ channels:
     title: Фриланс работа заказчики
   - username: FrilanceBirg
     title: Freelance биржа
-  - username: freelance_birzha
-    title: Фриланс биржа чат
   - username: freelance_poisk
     title: Поиск фриланс
   - username: work_online_today
     title: Работа онлайн
   - username: free_chat_for_freelance
     title: Free chat freelance
-  - username: freelance_in_telegram
-    title: Freelance in Telegram
   - username: freelansvipchat
     title: Фриланс VIP чат
   - username: birzhakanalov1
     title: Биржа работы онлайн
 
-# Сообщение проходит, если есть хотя бы одно слово из списка.
+  # TGStat, 2026-09-23. Доски про ИИ, ботов и автоматизацию.
+  # Видео и «нейрокреатор» отсекает фильтр, если нет бота, n8n или агента.
+  - username: neirosetiwork
+    title: Нейросети ИИ AI вакансии
+  - username: ai_job_ru
+    title: AI Вакансии нейрокреаторы
+  - username: aivacancychannel
+    title: ИИ Вакансии
+  - username: odsjobs
+    title: ODS jobs ML и RAG
+  - username: search_techspec
+    title: Ищу техспец
+  - username: cofounder_work
+    title: Вакансии в стартапах
+  - username: worksvsem
+    title: Удалёнка для всех
+  - username: zrabota
+    title: АйТи вакансии и ИИ
+  - username: digital_career
+    title: Digital Hunt
+
+  # Папка «Фриланс», 2026-09-25. https://t.me/addlist/ItYA9_Bfa4A1ZDg0
+  # Все чаты папки, без отбора по теме. worksvsem уже был выше.
+  - channel_id: 1615175239
+    title: "Торрент курс | Склад курсов"
+  - username: Info_Job
+    title: "INFOJOBS | Вакансии в инфобизнесе"
+  - username: Edit_Jobs
+    title: "Монтаж Hub | Вакансии по видеомонтажу"
+  - username: SMM_Jobss
+    title: "SMM PRO | Вакансии в SMM"
+  - username: Content_Jobss
+    title: "ContentHub | Вакансии в контент-продакшене | Reels | Stories"
+  - username: Marketing_Jobss
+    title: "Marketing Space | Вакансии для маркетологов"
+  - username: udalendwork
+    title: "Удалёнка | Вакансии"
+  - username: ydalenkarussian
+    title: "Удалёнка"
+  - username: liberty_job
+    title: "Либерти Джоб"
+  - username: smmtheworkkp
+    title: "Без будильника | Вакансии"
+  - username: butukovuy_lux
+    title: "Б/Утиковый люкс | Фриланс"
+  - username: startfreelancer
+    title: "Фриланс СТАРТ | Удаленная работа"
+  - username: board_axolotl
+    title: "Аксолотль — Вакансии на фрилансе"
+  - username: Uyut_frilans
+    title: "Уютный Фриланс"
+  - username: neiro_ai_vacancy
+    title: "Вакансии: AI, ИИ, Нейросети"
+  - username: eagle_to_work
+    title: "Доска объявлений | Вакансии"
+  - username: smm_top_vacancy
+    title: "SMM Фриланс Ai нейро вакансии работа от 80к"
+  - username: sferadeytelnosti
+    title: "Сфера деятельности | Вакансии"
+  - username: vakansii_ai
+    title: "AI ВАКАНСИИ НЕЙРОСЕТИ ИИ РАБОТА"
+  - username: Python_Jbs
+    title: "Python jobs | Вакансии в IT"
+  - username: freelance_joob
+    title: "ВАКАНСИИ ДЛЯ МЕНЕДЖЕРОВ ПО ПРОДАЖАМ"
+  - username: workfordesigner
+    title: "Дизайнер? Есть работа!"
+  - username: freelanceeboom
+    title: "Копирайтер на фрилансе? Заходи!"
+  - username: vakansii_dizaynerov
+    title: "ВАКАНСИИ ДЛЯ ДИЗАЙНЕРОВ МОСКВА"
+  - username: FreelanceMirr
+    title: "Мир фриланса | Вакансии"
+  - username: For_case
+    title: "За кейс | Фриланс вакансии"
+  - username: design_talking
+    title: "Чат дизайнеров"
+  - username: smm_vakansiii
+    title: "ВАКАНСИИ SMM РИЛСМЕЙКЕРЫ МОСКВА"
+  - username: freelancekontinent
+    title: "Континент Фриланса | Вакансии | Удаленная работа"
+  - username: Designs_squad
+    title: "Designs squad | Дизайн вакансии"
+  - username: prostranstvowork
+    title: "Рабочее пространство | Удаленная работа"
+  - username: infobizzer
+    title: "INFOBIZ РАБОТА"
+  - username: Designs_job
+    title: "Уголок дизайнера | Вакансии"
+  - username: Copywriters_Job
+    title: "Мастерская копирайта | Вакансии"
+  - username: GetClient
+    title: "GetClient | Фриланс вакансии"
+  - username: GetFrilans
+    title: "GetFrilans | Чат фрилансеров"
+  - username: Remotjob
+    title: "Твоя удалёнка | Поиск работы | Вакансии"
+  - username: smm_talking
+    title: "SMM Маркетинг чат"
+  - username: it_vacancy_relocation
+    title: "IT Digital вакансии РФ КАЗАХСТАН и релокация"
+  - username: Traffic_jobs
+    title: "Таргет | Арбитраж | Вакансии"
+  - username: Jobs_for_IT
+    title: "IT jobs | Вакансии в ИТ"
+  - username: Koteyka_Freelancer
+    title: "Фриланс Котики | Вакансии Фриланс | Фриланс Чат"
+  - username: worldeventjob
+    title: "Вся творческая работа Event Hunter планеты"
+  - username: rueventjob4at
+    title: "Я творю на фрилансе"
+  - username: sova_freelance
+    title: "СОВА на ФРИЛАНСЕ"
+  - username: ruwiw
+    title: "Фриланс | Вакансии | Ищу работу"
+  - username: rabota_is_doma_vakansii
+    title: "РАБОТА ИЗ ДОМА | ВАКАНСИИ"
+  - username: talentedpeoples
+    title: "Работа талантам + удаленка и фриланс"
+  - username: frilancekomfort
+    title: "Работа в комфорте"
+  - username: prodviggator
+    title: "АВИТО ПРОДВИГАТОР"
+  - username: g00djob4all
+    title: "Хорошая работа для тебя | Удаленка"
+
+# Пост проходит, если ищут исполнителя и в тексте есть услуга из кейсов.
+# Сейчас шире обычного: Павел калибрует ленту через «Не моё».
 keywords:
   - n8n
   - make.com
   - integromat
   - zapier
+  - автоматизац
   - чат-бот
   - чатбот
   - chatbot
@@ -62,39 +184,48 @@ keywords:
   - бот для
   - ии агент
   - ai агент
+  - ии-агент
+  - ai agent
   - нейросет
   - chatgpt
   - gpt
   - openai
-  - автоматизац
-  - парсер
-  - crm
-  - битрикс
-  - амосрм
-  - amo
-  - лид
-  - интернет-магазин
-  - интернет магазин
-  - wildberries
-  - ozon
-  - внедрен
-  - под ключ
+  - claude
+  - gemini
+  - deepseek
+  - copilot
+  - perplexity
+  - llama
+  - grok
+  - cursor
+  - курсор
+  - llm
   - rag
-  - агентск
-  - голосовой
-  - воронк
-  - 1с
-  - 1c
+  - файнтюн
+  - дообучен
   - база знаний
-  - регламент
-  - дзен
   - ии-ассистент
   - ии ассистент
   - ai-ассистент
-  - интеграц
-  - договор
-  - карточки
-  - маркетплейс
+  - wordpress
+  - вордпресс
+  - вордпрес
+  - сайт
+  - лендинг
+  - интернет-магазин
+  - контент-завод
+  - контент завод
+  - контент-конвейер
+  - трафик
+  - 1с
+  - crm
+  - дзен
+  - каталог
+  - карточки товар
+  - карточки для
+  - создание карточек
+  - конвейер карточек
+  - товарные карточки
 
 # Сначала ищем, что человек сам ищет работу или исполнителя.
 # Потом это склеивается с ключами услуг. Одно без другого не проходит.
@@ -145,3 +276,9 @@ stopwords:
   - агент по недвижимости
   - дизайн карточки
   - слайдов карточки
+  - менеджер маркетплейс
+  - менеджеры маркетплейсов
+  - менеджер по ozon
+  - менеджер по wildberries
+  - менеджер по wb
+  - какого менеджера ищу

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import aiosqlite
 
-from app.filters import text_fingerprint
+from app.filters import prefix_fingerprint, text_fingerprint
 from app.settings import settings
 
 SCHEMA = """
@@ -36,7 +36,36 @@ CREATE TABLE IF NOT EXISTS subscribers (
     username TEXT,
     created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS hidden_keys (
+    key TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL
+);
 """
+
+
+def _source_key(payload: dict) -> str:
+    source = (payload.get("source") or "telegram").strip()
+    channel_id = str(payload.get("channel_id") or "").strip()
+    message_id = payload.get("message_id")
+    if channel_id and message_id is not None:
+        return f"{source}:{channel_id}:{message_id}"
+    return ""
+
+
+def _lead_block_keys(row: dict) -> list[str]:
+    keys: list[str] = []
+    text = row.get("text") or ""
+    fingerprint = (row.get("text_key") or "").strip() or text_fingerprint(text)
+    prefix = (row.get("prefix_key") or "").strip() or prefix_fingerprint(text)
+    if fingerprint:
+        keys.append(fingerprint)
+    if prefix:
+        keys.append(prefix)
+    source_key = _source_key(row)
+    if source_key:
+        keys.append(source_key)
+    return list(dict.fromkeys(keys))
 
 LEAD_EXTRA_COLUMNS = {
     "sender_username": "TEXT",
@@ -46,6 +75,10 @@ LEAD_EXTRA_COLUMNS = {
     "kind": "TEXT",
     "reject_reason": "TEXT",
     "text_key": "TEXT",
+    "prefix_key": "TEXT",
+    "reply_text": "TEXT",
+    "reply_state": "TEXT",
+    "reply_error": "TEXT",
 }
 
 
@@ -58,6 +91,7 @@ async def connect() -> aiosqlite.Connection:
     db = await aiosqlite.connect(settings.db_path)
     db.row_factory = aiosqlite.Row
     await db.execute("PRAGMA journal_mode=WAL")
+    await db.execute("PRAGMA busy_timeout=5000")
     await db.executescript(SCHEMA)
     cur = await db.execute("PRAGMA table_info(leads)")
     existing = {row[1] for row in await cur.fetchall()}
@@ -68,10 +102,43 @@ async def connect() -> aiosqlite.Connection:
     return db
 
 
+async def remember_hidden(db: aiosqlite.Connection, keys: list[str]) -> None:
+    """Помечает отпечатки, чтобы удалённые вакансии не вернулись после сбора."""
+    now = _now()
+    for key in keys:
+        key = (key or "").strip()
+        if not key:
+            continue
+        await db.execute(
+            "INSERT OR IGNORE INTO hidden_keys(key, created_at) VALUES (?, ?)",
+            (key, now),
+        )
+    await db.commit()
+
+
+async def is_hidden(db: aiosqlite.Connection, keys: list[str]) -> bool:
+    clean = [k for k in keys if k]
+    if not clean:
+        return False
+    marks = ",".join("?" for _ in clean)
+    cur = await db.execute(
+        f"SELECT 1 FROM hidden_keys WHERE key IN ({marks}) LIMIT 1",
+        clean,
+    )
+    return await cur.fetchone() is not None
+
+
 async def upsert_lead(db: aiosqlite.Connection, payload: dict) -> int | None:
     """Возвращает id, если строка новая. None — это сообщение или такой же текст уже есть."""
     fingerprint = text_fingerprint(payload["text"])
-    existing = await db.execute("SELECT id FROM leads WHERE text_key = ?", (fingerprint,))
+    prefix = prefix_fingerprint(payload["text"])
+    source_key = _source_key(payload)
+    if await is_hidden(db, [fingerprint, prefix, source_key]):
+        return None
+    existing = await db.execute(
+        "SELECT id FROM leads WHERE text_key = ? OR prefix_key = ?",
+        (fingerprint, prefix),
+    )
     if await existing.fetchone():
         return None
     cur = await db.execute(
@@ -79,8 +146,8 @@ async def upsert_lead(db: aiosqlite.Connection, payload: dict) -> int | None:
         INSERT OR IGNORE INTO leads (
             source, channel_username, channel_title, channel_id, message_id,
             message_date, text, url, keywords, created_at,
-            sender_username, sender_id, sender_name, write_url, kind, text_key
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            sender_username, sender_id, sender_name, write_url, kind, text_key, prefix_key
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             payload.get("source", "telegram"),
@@ -99,6 +166,7 @@ async def upsert_lead(db: aiosqlite.Connection, payload: dict) -> int | None:
             payload.get("write_url"),
             payload.get("kind"),
             fingerprint,
+            prefix,
         ),
     )
     await db.commit()
@@ -111,6 +179,7 @@ async def list_leads(
     db: aiosqlite.Connection,
     *,
     status: str | None = None,
+    statuses: list[str] | None = None,
     min_fit: int | None = None,
     hide_low: bool = True,
     channel: str | None = None,
@@ -118,7 +187,11 @@ async def list_leads(
 ) -> list[dict]:
     clauses = ["1=1"]
     args: list = []
-    if status:
+    if statuses:
+        marks = ",".join("?" for _ in statuses)
+        clauses.append(f"status IN ({marks})")
+        args.extend(statuses)
+    elif status:
         clauses.append("status = ?")
         args.append(status)
     if channel:
@@ -149,6 +222,34 @@ async def get_lead(db: aiosqlite.Connection, lead_id: int) -> dict | None:
 
 async def set_status(db: aiosqlite.Connection, lead_id: int, status: str) -> None:
     await db.execute("UPDATE leads SET status = ? WHERE id = ?", (status, lead_id))
+    await db.commit()
+
+
+async def mark_reply(db: aiosqlite.Connection, lead_id: int, state: str, error: str = "") -> None:
+    await db.execute(
+        "UPDATE leads SET reply_state = ?, reply_error = ? WHERE id = ?",
+        (state, error, lead_id),
+    )
+    await db.commit()
+
+
+async def save_reply(db: aiosqlite.Connection, lead_id: int, text: str) -> None:
+    await db.execute(
+        "UPDATE leads SET reply_text = ?, reply_state = 'ready', reply_error = '' WHERE id = ?",
+        (text, lead_id),
+    )
+    await db.commit()
+
+
+async def reset_writing_replies(db: aiosqlite.Connection) -> None:
+    await db.execute(
+        """
+        UPDATE leads
+        SET reply_state = 'error',
+            reply_error = 'запись прервалась, открой отклик и попроси написать ещё раз'
+        WHERE reply_state = 'writing'
+        """
+    )
     await db.commit()
 
 
@@ -202,9 +303,27 @@ async def save_score(db: aiosqlite.Connection, lead_id: int, score: dict, *, com
         await db.commit()
 
 
-async def delete_leads(db: aiosqlite.Connection, lead_ids: list[int]) -> None:
+async def delete_leads(
+    db: aiosqlite.Connection,
+    lead_ids: list[int],
+    *,
+    remember: bool = False,
+) -> None:
     if not lead_ids:
         return
+    if remember:
+        keys: list[str] = []
+        for start in range(0, len(lead_ids), 400):
+            chunk = lead_ids[start : start + 400]
+            placeholders = ",".join("?" for _ in chunk)
+            cur = await db.execute(
+                f"SELECT source, channel_id, message_id, text, text_key, prefix_key "
+                f"FROM leads WHERE id IN ({placeholders})",
+                chunk,
+            )
+            for row in await cur.fetchall():
+                keys.extend(_lead_block_keys(dict(row)))
+        await remember_hidden(db, keys)
     for start in range(0, len(lead_ids), 400):
         chunk = lead_ids[start : start + 400]
         placeholders = ",".join("?" for _ in chunk)
@@ -212,19 +331,42 @@ async def delete_leads(db: aiosqlite.Connection, lead_ids: list[int]) -> None:
     await db.commit()
 
 
+async def delete_taken(db: aiosqlite.Connection) -> int:
+    cur = await db.execute(
+        "SELECT id, source, channel_id, message_id, text, text_key, prefix_key "
+        "FROM leads WHERE status IN ('take', 'contacted')"
+    )
+    rows = [dict(r) for r in await cur.fetchall()]
+    keys: list[str] = []
+    for row in rows:
+        keys.extend(_lead_block_keys(row))
+    await remember_hidden(db, keys)
+    cur = await db.execute(
+        "DELETE FROM leads WHERE status IN ('take', 'contacted')"
+    )
+    await db.commit()
+    return int(cur.rowcount or 0)
+
+
 async def duplicate_lead_ids(db: aiosqlite.Connection) -> list[int]:
-    """Повтор того же текста: оставляем первую карточку, остальные отдаём на удаление."""
-    cur = await db.execute("SELECT id, text, text_key FROM leads ORDER BY id")
-    seen: dict[str, int] = {}
+    """Повтор того же текста или того же начала: оставляем первую карточку."""
+    cur = await db.execute("SELECT id, text, text_key, prefix_key FROM leads ORDER BY id")
+    seen: set[str] = set()
     drop: list[int] = []
     for row in await cur.fetchall():
+        keys = row.keys()
         fingerprint = row["text_key"] or text_fingerprint(row["text"] or "")
-        if not row["text_key"]:
-            await db.execute("UPDATE leads SET text_key = ? WHERE id = ?", (fingerprint, row["id"]))
-        if fingerprint in seen:
+        prefix = row["prefix_key"] if "prefix_key" in keys and row["prefix_key"] else prefix_fingerprint(row["text"] or "")
+        if not row["text_key"] or ("prefix_key" in keys and not row["prefix_key"]):
+            await db.execute(
+                "UPDATE leads SET text_key = ?, prefix_key = ? WHERE id = ?",
+                (fingerprint, prefix, row["id"]),
+            )
+        if fingerprint in seen or prefix in seen:
             drop.append(int(row["id"]))
         else:
-            seen[fingerprint] = int(row["id"])
+            seen.add(fingerprint)
+            seen.add(prefix)
     await db.commit()
     return drop
 

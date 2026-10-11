@@ -9,8 +9,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app import collector, db, lessons, notifier, scorer
+from app import boards, collector, db, lessons, mailings, notifier, scorer
 from app.filters import configured_channels, intake_hits, load_sources
+from app import reply
 from app.settings import ROOT, settings
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -39,18 +40,24 @@ templates.env.globals["feed_href"] = feed_href
 async def lifespan(app: FastAPI):
     settings.db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = await db.connect()
+    await db.reset_writing_replies(conn)
     await conn.close()
     asyncio.create_task(_rescore_safe())
-    try:
-        if await collector.is_authorized():
-            await collector.start_listener()
-            asyncio.create_task(_collect_history_safe())
-    except Exception:
-        log.exception("Telegram ещё не готов")
+    asyncio.create_task(boards.poll_forever())
+    asyncio.create_task(_telegram_safe())
     await notifier.start()
     yield
     await notifier.stop()
     await collector.disconnect()
+
+
+async def _telegram_safe() -> None:
+    try:
+        if await collector.is_authorized():
+            await collector.start_listener()
+            await _collect_history_safe()
+    except Exception:
+        log.exception("Telegram ещё не готов")
 
 
 async def _rescore_safe():
@@ -142,9 +149,9 @@ async def feed(
     try:
         leads = await db.list_leads(
             conn,
-            status=status or None,
+            status="new",
             channel=channel or None,
-            hide_low=not bool(show_low),
+            hide_low=False,
         )
         for lead in leads:
             lead["keyword_list"] = _decode_keywords(lead.get("keywords"))
@@ -172,12 +179,103 @@ async def feed(
         leads=leads,
         counts=counts,
         channels=channel_items,
-        status=status or "",
+        status="",
         channel=channel or "",
-        show_low=bool(show_low),
+        page="feed",
         scorer_on=True,
-        lessons=lessons.load_lessons(8),
     )
+
+
+@app.get("/taken", response_class=HTMLResponse)
+async def taken(request: Request):
+    conn = await db.connect()
+    try:
+        rows = await db.list_leads(conn, statuses=["take", "contacted"], hide_low=False, limit=80)
+        for lead in rows:
+            lead["keyword_list"] = _decode_keywords(lead.get("keywords"))
+    finally:
+        await conn.close()
+    return render(request, "taken.html", leads=rows, page="taken")
+
+
+@app.get("/rejects", response_class=HTMLResponse)
+async def rejects(request: Request):
+    conn = await db.connect()
+    try:
+        rows = await db.list_leads(conn, status="reject", hide_low=False, limit=40)
+    finally:
+        await conn.close()
+    notes = lessons.records(30)
+    for row in notes:
+        if not row.get("instruction"):
+            row["instruction"] = lessons.proposed_instruction(row.get("reason") or "")
+    return render(
+        request,
+        "rejects.html",
+        lessons=notes,
+        leads=rows,
+        page="rejects",
+    )
+
+
+@app.get("/mailings", response_class=HTMLResponse)
+async def mailings_page(request: Request):
+    return render(request, "mailings.html", drafts=mailings.load()["drafts"], page="mailings", saved=False)
+
+
+@app.post("/mailings")
+async def mailings_save(
+    chat: str = Form(""),
+    theme: str = Form(""),
+    text: str = Form(""),
+):
+    if chat.strip() and text.strip():
+        mailings.save_draft(chat, theme, text)
+    return RedirectResponse("/mailings", status_code=303)
+
+
+@app.post("/mailings/{index}/delete")
+async def mailings_delete(index: int):
+    mailings.delete_draft(index)
+    return RedirectResponse("/mailings", status_code=303)
+
+
+@app.get("/leads/{lead_id}/reply", response_class=HTMLResponse)
+async def reply_page(request: Request, lead_id: int):
+    conn = await db.connect()
+    try:
+        lead = await db.get_lead(conn, lead_id)
+        if not lead:
+            return RedirectResponse("/", status_code=303)
+        state = lead.get("reply_state") or ""
+        if state not in ("writing", "ready", "error"):
+            await reply.start_reply(lead_id)
+            lead = await db.get_lead(conn, lead_id) or lead
+    finally:
+        await conn.close()
+    profile = {"about": "", "kind": ""}
+    if (lead.get("reply_state") or "") != "writing":
+        profile = await collector.author_profile(lead)
+    return render(
+        request,
+        "reply.html",
+        lead=lead,
+        about=profile["about"],
+        about_kind=profile["kind"],
+        draft=(lead.get("reply_text") or "").strip(),
+        reply_state=lead.get("reply_state") or "",
+        reply_error=lead.get("reply_error") or "",
+        page="",
+    )
+
+
+@app.post("/leads/{lead_id}/reply")
+async def reply_revise(lead_id: int, instruction: str = Form(""), again: str = Form("")):
+    text = instruction.strip()
+    if not text and again != "1":
+        return RedirectResponse(f"/leads/{lead_id}/reply", status_code=303)
+    await reply.finish_reply(lead_id, text)
+    return RedirectResponse(f"/leads/{lead_id}/reply", status_code=303)
 
 
 @app.post("/setup/code")
@@ -251,6 +349,8 @@ async def update_status(lead_id: int, status: str = Form(...), next: str = Form(
         await db.set_status(conn, lead_id, status)
     finally:
         await conn.close()
+    if status == "take":
+        await reply.start_reply(lead_id)
     return RedirectResponse(next or "/", status_code=303)
 
 
@@ -266,21 +366,61 @@ async def reject_with_reason(
         return RedirectResponse(next or "/", status_code=303)
     conn = await db.connect()
     try:
+        lead = await db.get_lead(conn, lead_id)
         await db.reject_lead(conn, lead_id, text)
     finally:
         await conn.close()
-    lessons.add_lesson(text, lead_id)
+    lessons.add_lesson(text, lead_id, about=(lead or {}).get("text") or "")
     return RedirectResponse(next or "/", status_code=303)
+
+
+_collect_lock = asyncio.Lock()
+
+
+async def _collect_manual() -> None:
+    if _collect_lock.locked():
+        log.info("Сбор уже идёт — повторный запуск пропускаю")
+        return
+    async with _collect_lock:
+        try:
+            n = await boards.poll_once()
+            log.info("Ручной сбор с бирж: %s", n)
+        except Exception:
+            log.exception("Ручной сбор с бирж не удался")
+        try:
+            await collector.refresh_watch_list()
+            result = await collector.collect_history()
+            log.info("Ручной сбор Telegram: %s", result)
+        except Exception:
+            log.exception("Ручной сбор Telegram не удался")
 
 
 @app.post("/collect")
 async def collect_now():
-    try:
-        await collector.refresh_watch_list()
-        await collector.collect_history()
-    except Exception:
-        log.exception("Ручной сбор не удался")
+    # Сразу отдаём страницу: долгий сбор Telegram/бирж не должен блокировать ленту и бота.
+    asyncio.create_task(_collect_manual())
     return RedirectResponse("/", status_code=303)
+
+
+@app.post("/leads/{lead_id}/delete")
+async def delete_lead(lead_id: int, next: str = Form("/taken")):
+    conn = await db.connect()
+    try:
+        await db.delete_leads(conn, [lead_id], remember=True)
+    finally:
+        await conn.close()
+    return RedirectResponse(next or "/taken", status_code=303)
+
+
+@app.post("/taken/clear")
+async def clear_taken():
+    conn = await db.connect()
+    try:
+        n = await db.delete_taken(conn)
+        log.info("Очистил взятые: %s", n)
+    finally:
+        await conn.close()
+    return RedirectResponse("/taken", status_code=303)
 
 
 @app.get("/health")
@@ -290,10 +430,13 @@ async def health():
         authorized = await collector.is_authorized()
     except Exception:
         pass
+    from app import jev
+
     return {
         "ok": True,
         "telegram_api": settings.has_telegram_api,
         "authorized": authorized,
         "scorer": True,
+        "jev": jev.enabled(),
         "bot": bool(settings.bot_token),
     }

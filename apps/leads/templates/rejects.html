@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Отказы</title>
+  <link rel="stylesheet" href="/static/style.css?v=2">
+</head>
+<body>
+  <div class="wrap">
+    <h1>Отказы</h1>
+    {% include "nav.html" %}
+    <p class="muted">Заявки, которые ты отметил как не свои, и выводы, по которым фильтр их больше не кладёт в ленту.</p>
+    {% if lessons %}
+      <section class="lessons">
+        <div class="opinion-label">Что запомнил фикс</div>
+        {% for row in lessons %}
+          <p>{{ row.conclusion or row.reason }}</p>
+          {% if row.instruction %}
+            <p>Фиксик предлагает внести в инструкции: {{ row.instruction }}</p>
+          {% endif %}
+        {% endfor %}
+      </section>
+    {% else %}
+      <p class="muted">Комментариев к отказам пока нет.</p>
+    {% endif %}
+    {% for lead in leads %}
+      <article class="card">
+        <div class="meta">
+          <strong>@{{ lead.channel_username or 'канал' }}</strong>
+          <span>{{ (lead.message_date or '')[:16].replace('T', ' ') }}</span>
+        </div>
+        <div class="text">{{ lead.text }}</div>
+        {% if lead.reject_reason %}
+          <div class="why">Не моё: {{ lead.reject_reason }}</div>
+        {% endif %}
+      </article>
+    {% endfor %}
+    {% if not leads %}
+      <div class="empty">Отклонённых заявок в базе нет.</div>
+    {% endif %}
+  </div>
+</body>
+</html>
