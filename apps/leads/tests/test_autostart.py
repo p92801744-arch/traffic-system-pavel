@@ -397,6 +397,9 @@ def test_profile_request_returns_listener_answer(tmp_path):
 def test_entrypoints_and_windows_scripts():
     names = [spec.name for spec in CHILD_SPECS]
     assert names == ["web", "telegram", "boards", "networking", "notifier"]
+    bot = next(spec for spec in CHILD_SPECS if spec.name == "notifier")
+    assert bot.args == ["-m", "app.runner", "notifier"]
+    assert bot.env == {"LEADS_ROLE": "notifier"}
     assert (ROOT / "app" / "__main__.py").exists()
     assert (ROOT / "app" / "runner.py").exists()
     vbs = (ROOT / "scripts" / "start-hidden.vbs").read_bytes()

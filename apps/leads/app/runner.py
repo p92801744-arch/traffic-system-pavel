@@ -218,6 +218,8 @@ async def serve_networking() -> None:
 
 
 async def serve_notifier() -> None:
+    """Бот живёт в этом процессе. Супервизор поднимает процесс заново, если он вылетит."""
+    log.info("Бот под супервизором")
     delay = 5.0
     while True:
         if not notifier.enabled():
