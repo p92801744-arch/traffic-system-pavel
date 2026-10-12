@@ -578,8 +578,7 @@ def not_my_job(text: str) -> str | None:
         return "разовая правка или волшебная кнопка"
     if TENDER.search(text):
         return "тендер"
-    if is_hiring(text):
-        return "штатная вакансия"
+    # Штатные вакансии не отсекаем (решение Павла 2026-10-12).
     if is_offer_card(text):
         return "карточка услуги, не заказ"
     smm = smm_block(text)
@@ -594,8 +593,6 @@ def not_my_job(text: str) -> str | None:
     # «Сайт» или «бот» сами по себе больше не выключают отсев мусора.
     if SLAG.search(text) and not (SYSTEM_BUILD.search(text) and CLIENT_INTENT.search(text)):
         return "чужая вакансия или реклама"
-    if HELPER_JOB.search(text) and not REAL_SERVICE.search(text):
-        return "ищут живого помощника, не услугу"
     if SELF_PROMO.search(text) and not client_opens(text):
         return "исполнитель рекламирует себя"
     return None

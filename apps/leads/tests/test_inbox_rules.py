@@ -102,15 +102,14 @@ def test_review_rejected():
     assert intake_hits(text, _sources(), assume_request=True) is None
 
 
-def test_hiring_rejected():
+def test_hiring_not_rejected():
+    # ??????? ????? 2026-10-12: ??????? ???????? ?? ????????, is_hiring ?????? ????????.
     text = (
         "Ищем в штат разработчика чат-ботов и n8n, оклад 150 000 ₽ в месяц, "
         "офис в Москве, полная занятость."
     )
     assert is_hiring(text)
-    assert not_my_job(text) == "штатная вакансия"
-    assert intake_hits(text, _sources(), assume_request=True) is None
-    assert judge(text)["fit"] <= 2
+    assert not_my_job(text) is None
 
 
 def test_project_contractor_is_not_staff():
@@ -179,6 +178,13 @@ def test_real_client_requests_pass():
         assert judge(text)["fit"] >= 3, text
 
 
+def _staff_or_helper(text: str) -> bool:
+    """?????, ??????????? ??? ???? ??? ????? ????????: ??? ??????? ????? 2026-10-12."""
+    from app.filters import HELPER_JOB, REAL_SERVICE
+
+    return bool(is_hiring(text) or (HELPER_JOB.search(text) and not REAL_SERVICE.search(text)))
+
+
 def _rules_reject(text: str) -> str | None:
     """Отказ правилами, без памяти уроков. Так виден свежий пост того же вида."""
     sources = _sources()
@@ -195,6 +201,8 @@ def test_audit_lessons_are_rejected_by_rules():
     for lead_id in AUDIT_IDS:
         text = _about(lead_id)
         assert text, lead_id
+        if _staff_or_helper(text):
+            continue
         reason = _rules_reject(text)
         assert reason, lead_id
         assert intake_hits(text, sources, assume_request=True) is None
@@ -217,13 +225,15 @@ def test_every_stored_lesson_repost_is_rejected():
 KNOWN_RULE_GAPS = {4434, 5197, 5080, 4681, 5132, 5128, 5129, 5143}
 # SMM-уроки: после решения брать SMM широко (2026-10-11) правила их не режут, перепост ловит learned_block.
 KNOWN_RULE_GAPS |= {4409, 4410, 4416, 4680, 4798, 4983, 4992, 5249}
+# Живые уроки 2026-10-12 (реклама, VPN, поиск клиентов за процент): правила не классифицируют, перепост ловит learned_block.
+KNOWN_RULE_GAPS |= {5307, 5312, 5319, 5322, 5323, 5329}
 
 
 def test_rule_gaps_stay_inside_known_lessons():
     missed = []
     for row in _lessons():
         text = row.get("about") or ""
-        if text and not _rules_reject(text):
+        if text and not _staff_or_helper(text) and not _rules_reject(text):
             missed.append(row.get("lead_id"))
     assert set(missed) <= KNOWN_RULE_GAPS, set(missed) - KNOWN_RULE_GAPS
 
