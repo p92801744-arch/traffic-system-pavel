@@ -210,7 +210,26 @@ async def browser_html(url: str, wait: float = 4, tries: int = 5) -> str:
             html = (result.get("result") or {}).get("result", {}).get("value") or ""
             if html and "just a moment" not in html[:4000].lower():
                 break
+        # Вернуть вкладку на Авито, иначе следующий заход откроет новую вкладку.
+        await _call(ws, 5100, "Page.navigate", {"url": BOARD_URL})
     return html
+
+
+async def browser_cookies(url: str) -> list[dict]:
+    """Куки сайта из локального Chrome сборщика (вход делает сам Павел). Только чтение."""
+    if not await _port_open():
+        return []
+    socket = await _page_socket()
+    if not socket:
+        return []
+    async with websockets.connect(socket, max_size=20_000_000) as ws:
+        result = await _call(ws, 5200, "Network.getCookies", {"urls": [url]})
+    cookies = (result.get("result") or {}).get("cookies") or []
+    return [
+        {"host": item.get("domain") or "", "name": item.get("name") or "", "value": item.get("value") or ""}
+        for item in cookies
+        if item.get("name") and item.get("value")
+    ]
 
 
 async def fetch_orders() -> list[dict]:

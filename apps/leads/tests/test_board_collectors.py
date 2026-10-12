@@ -57,6 +57,11 @@ def test_weblancer_browser_also_blocked(monkeypatch):
 
 def test_profi_expired_login_returns_empty(monkeypatch, caplog):
     monkeypatch.setattr(profi, "_cookies", lambda: {"sid": "x"})
+
+    async def no_refresh():
+        return False
+
+    monkeypatch.setattr(profi, "refresh_from_browser", no_refresh)
     _mock_client(monkeypatch, profi, lambda r: httpx.Response(401, json={}))
     with caplog.at_level("WARNING"):
         assert asyncio.run(profi.fetch_orders()) == []
@@ -83,3 +88,29 @@ def test_staff_lesson_no_longer_blocks_and_avito_template_ignored(tmp_path, monk
     )
     assert lessons.learned_block(other) is None
     assert lessons.learned_block(promo_about)
+
+
+def test_profi_refreshes_login_from_browser_on_401(monkeypatch, tmp_path):
+    session = tmp_path / "profi-session.json"
+    session.write_text(json.dumps([{"host": ".profi.ru", "name": "sid", "value": "old"}]), encoding="utf-8")
+    monkeypatch.setattr(profi, "SESSION_PATH", session)
+
+    async def fresh(url):
+        return [
+            {"host": ".profi.ru", "name": "prfr_bo_tkn", "value": "new"},
+            {"host": ".other.ru", "name": "x", "value": "y"},
+        ]
+
+    monkeypatch.setattr(avito, "browser_cookies", fresh)
+    board = {"data": {"boSearchBoardItems": {"items": [{"id": "77", "title": "Сайт", "isFresh": True}]}}}
+
+    def handler(request):
+        if "prfr_bo_tkn=new" in request.headers.get("cookie", ""):
+            return httpx.Response(200, json=board)
+        return httpx.Response(401, json={})
+
+    _mock_client(monkeypatch, profi, handler)
+    items = asyncio.run(profi.fetch_orders())
+    assert [item["message_id"] for item in items] == [77]
+    saved = json.loads(session.read_text(encoding="utf-8"))
+    assert [row["name"] for row in saved] == ["prfr_bo_tkn"]

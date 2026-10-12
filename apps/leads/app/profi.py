@@ -118,20 +118,46 @@ def _orders(payload: dict) -> list[dict]:
     return found
 
 
+async def refresh_from_browser() -> bool:
+    """Взять свежий вход из локального Chrome сборщика и сохранить в profi-session.json."""
+    from app.avito import browser_cookies
+
+    try:
+        rows = await browser_cookies("https://profi.ru/")
+    except Exception:
+        log.warning("Профи.ру: локальный Chrome не отдал вход")
+        return False
+    rows = [row for row in rows if "profi.ru" in row["host"]]
+    if not any(row["name"] == "prfr_bo_tkn" for row in rows):
+        return False
+    SESSION_PATH.parent.mkdir(parents=True, exist_ok=True)
+    SESSION_PATH.write_text(json.dumps(rows, ensure_ascii=False), encoding="utf-8")
+    log.info("Профи.ру: вход обновлён из браузера")
+    return True
+
+
+async def _post(spec: dict, cookies: dict[str, str]) -> httpx.Response:
+    async with httpx.AsyncClient(timeout=25, cookies=cookies, headers=HEADERS) as client:
+        return await client.post(BOARD_URL, json=spec)
+
+
 async def fetch_orders() -> list[dict]:
     cookies = _cookies()
+    if not cookies and await refresh_from_browser():
+        cookies = _cookies()
     if not cookies:
         log.info("Профи.ру: входа нет, ленту пропускаю")
         return []
     spec = json.loads(QUERY_PATH.read_text(encoding="utf-8"))
     try:
-        async with httpx.AsyncClient(timeout=25, cookies=cookies, headers=HEADERS) as client:
-            response = await client.post(BOARD_URL, json=spec)
-            if response.status_code in {401, 403}:
-                log.warning("Профи.ру: вход истёк (HTTP %s), нужен повторный вход Павла", response.status_code)
-                return []
-            response.raise_for_status()
-            payload = response.json()
+        response = await _post(spec, cookies)
+        if response.status_code in {401, 403} and await refresh_from_browser():
+            response = await _post(spec, _cookies())
+        if response.status_code in {401, 403}:
+            log.warning("Профи.ру: вход истёк (HTTP %s), нужен повторный вход Павла", response.status_code)
+            return []
+        response.raise_for_status()
+        payload = response.json()
     except (httpx.HTTPError, json.JSONDecodeError):
         log.warning("Профи.ру не отдал ленту")
         return []
