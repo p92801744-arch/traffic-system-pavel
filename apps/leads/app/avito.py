@@ -184,6 +184,35 @@ async def _fetch_query(ws, query: str, msg_id: int) -> list[dict]:
     return _orders(payload.get("items") or [])
 
 
+async def browser_html(url: str, wait: float = 4, tries: int = 5) -> str:
+    """Открыть публичную страницу в той же локальной Chrome-вкладке и вернуть HTML.
+
+    Нужен для лент, которые простому HTTP-клиенту отдают проверку Cloudflare.
+    Ничего не нажимает и не входит в аккаунты.
+    """
+    await _ensure_chrome()
+    if not await _port_open():
+        return ""
+    socket = await _page_socket()
+    if not socket:
+        return ""
+    html = ""
+    async with websockets.connect(socket, max_size=40_000_000) as ws:
+        await _call(ws, 5000, "Page.navigate", {"url": url})
+        for attempt in range(tries):
+            await asyncio.sleep(wait)
+            result = await _call(
+                ws,
+                5001 + attempt,
+                "Runtime.evaluate",
+                {"expression": "document.documentElement.outerHTML", "returnByValue": True},
+            )
+            html = (result.get("result") or {}).get("result", {}).get("value") or ""
+            if html and "just a moment" not in html[:4000].lower():
+                break
+    return html
+
+
 async def fetch_orders() -> list[dict]:
     await _ensure_chrome()
     if not await _port_open():

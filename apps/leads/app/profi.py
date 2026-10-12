@@ -127,6 +127,9 @@ async def fetch_orders() -> list[dict]:
     try:
         async with httpx.AsyncClient(timeout=25, cookies=cookies, headers=HEADERS) as client:
             response = await client.post(BOARD_URL, json=spec)
+            if response.status_code in {401, 403}:
+                log.warning("Профи.ру: вход истёк (HTTP %s), нужен повторный вход Павла", response.status_code)
+                return []
             response.raise_for_status()
             payload = response.json()
     except (httpx.HTTPError, json.JSONDecodeError):

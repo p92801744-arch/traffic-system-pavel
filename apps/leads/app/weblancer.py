@@ -89,13 +89,29 @@ def _orders(html: str) -> list[dict]:
     return found
 
 
+async def _via_browser() -> list[dict]:
+    """Запасной путь: та же публичная лента через локальный Chrome (профиль Авито)."""
+    from app.avito import browser_html
+
+    try:
+        html = await browser_html(BOARD_URL)
+    except Exception:
+        log.warning("Weblancer: локальный Chrome не открыл ленту")
+        return []
+    if not html or _blocked(html):
+        log.warning("Weblancer закрыл ленту проверкой и в браузере, в этот заход заказов нет")
+        return []
+    found = _orders(html)
+    log.info("Weblancer: лента через браузер, заказов %s", len(found))
+    return found
+
+
 async def fetch_orders() -> list[dict]:
     try:
         async with httpx.AsyncClient(timeout=25, follow_redirects=True, headers=HEADERS) as client:
             response = await client.get(BOARD_URL)
             if response.status_code in {401, 403, 429, 503} or _blocked(response.text):
-                log.warning("Weblancer закрыл ленту проверкой, в этот заход заказов нет")
-                return []
+                return await _via_browser()
             response.raise_for_status()
     except httpx.HTTPError:
         log.warning("Weblancer не отдал список заказов")

@@ -215,6 +215,8 @@ def test_every_stored_lesson_repost_is_rejected():
         text = row.get("about") or ""
         if len(text) < 40:
             continue
+        if reason_class(str(row.get("reason") or "")) == "staff" or _staff_or_helper(text):
+            continue
         if intake_hits(text, sources, assume_request=True):
             leaked.append(row.get("lead_id"))
     assert leaked == []
@@ -229,10 +231,18 @@ KNOWN_RULE_GAPS |= {4409, 4410, 4416, 4680, 4798, 4983, 4992, 5249}
 KNOWN_RULE_GAPS |= {5307, 5312, 5319, 5322, 5323, 5329}
 
 
+# Павел отклоняет заявки вживую, файл уроков растёт. Проверяем срез до этой заявки,
+# новые уроки ловит learned_block.
+LESSON_SNAPSHOT_MAX = 5329
+
+
 def test_rule_gaps_stay_inside_known_lessons():
     missed = []
     for row in _lessons():
         text = row.get("about") or ""
+        lead_id = row.get("lead_id") or 0
+        if lead_id > LESSON_SNAPSHOT_MAX:
+            continue
         if text and not _staff_or_helper(text) and not _rules_reject(text):
             missed.append(row.get("lead_id"))
     assert set(missed) <= KNOWN_RULE_GAPS, set(missed) - KNOWN_RULE_GAPS

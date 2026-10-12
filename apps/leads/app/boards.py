@@ -73,6 +73,10 @@ def _parse_date(raw: str) -> datetime | None:
         return None
 
 
+def fl_maintenance(html: str) -> bool:
+    return "технические работы" in (html or "")[:20000].lower()
+
+
 def _fl_items(html: str) -> list[dict]:
     found: list[dict] = []
     pairs = re.findall(
@@ -160,7 +164,11 @@ async def poll_once() -> int:
         try:
             response = await client.get("https://www.fl.ru/projects/", params={"kind": "5"})
             response.raise_for_status()
+            if fl_maintenance(response.text):
+                log.warning("FL.ru на технических работах, заказов нет")
             fl_items = _fl_items(response.text)
+            if not fl_items and not fl_maintenance(response.text):
+                log.warning("FL.ru: страница пришла, но заказов не разобрано, вёрстка могла смениться")
         except Exception:
             log.warning("FL.ru не отдал список заказов")
             fl_items = []
