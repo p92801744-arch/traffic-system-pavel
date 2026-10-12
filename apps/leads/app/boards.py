@@ -215,7 +215,7 @@ async def poll_once() -> int:
         except Exception:
             log.warning("Авито Работа не отдал список вакансий")
             avito_items = []
-        for item in avito_items[:30]:
+        for item in avito_items[:200]:
             if await _save(item, sources):
                 saved += 1
     log.info("Биржи добавили %s заявок", saved)

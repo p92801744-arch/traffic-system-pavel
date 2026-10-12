@@ -5,8 +5,10 @@ import asyncio
 import json
 import logging
 import os
+import random
+import re
 import subprocess
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import quote
 
@@ -18,18 +20,44 @@ log = logging.getLogger("leads.avito")
 PORT = 9224
 CHROME = Path(os.environ.get("PROGRAMFILES", r"C:\Program Files")) / "Google" / "Chrome" / "Application" / "chrome.exe"
 PROFILE = Path(os.environ["LOCALAPPDATA"]) / "PavelLeads" / "avito-chrome"
-# Bare "n8n" redirects into service ads — keep Jobs-only queries.
+# Запросы проверены вручную 2026-10-12 в категории Работа/Вакансии.
+# Не брать: n8n, интеграция crm, amocrm, битрикс24, телеграм бот, разработчик сайтов, парсинг
+# (Авито уводит в услуги); tilda, python, нейросети, ии, prompt (уводит в общий поиск);
+# чат-бот, менеджер маркетплейсов, интернет-магазин (курьеры, водители, склад);
+# веб-дизайнер, дизайнер карточек, интернет-маркетолог (фильтр всё равно режет дизайн и маркетинг).
 QUERIES = (
-    "чат-бот",
+    "автоматизация бизнес процессов",
+    "make автоматизация",
+    "специалист по внедрению ии",
+    "разработчик ботов",
+    "разработчик чат-ботов",
+    "веб-разработчик",
     "wordpress",
-    "python разработчик",
-    "no-code",
+    "программист",
+    "контент-менеджер маркетплейсов",
+    "карточки товаров",
+    "seo-специалист",
+    "seo копирайтер",
+    "smm",
+    "smm-менеджер",
+    "таргетолог",
+    "ведение соцсетей",
+    "контент-менеджер",
+    "копирайтер",
 )
+# Регион в пути URL и подпись в ленте.
+REGIONS = (("all", "Авито Работа"), ("sankt-peterburg", "Авито Работа · СПб"))
+PER_REGION = 5          # запросов на регион за заход, по кругу
+PAUSE = (8.0, 14.0)     # пауза между запросами, секунд
+MIN_INTERVAL = timedelta(minutes=55)
+BLOCK_COOLDOWN = timedelta(hours=3)
+STATE_PATH = Path(os.environ["LOCALAPPDATA"]) / "PavelLeads" / "avito-state.json"
+VACANCY_PATH = re.compile(r"^https://www\.avito\.ru/(all|sankt-peterburg)/vakansii(?:[/?#]|$)")
 BOARD_URL = "https://www.avito.ru/all/vakansii?s=104"
 
 EXTRACT = r"""
 (() => {
-  if (!location.href.includes('/vakansii')) {
+  if (!/^https:\/\/www\.avito\.ru\/[a-z_-]+\/vakansii(?:[\/?#]|$)/.test(location.href)) {
     return JSON.stringify({ ok: false, href: location.href, items: [] });
   }
   if (/доступ ограничен|проблема с IP/i.test(document.title + ' ' + (document.body && document.body.innerText || ''))) {
@@ -49,14 +77,46 @@ EXTRACT = r"""
       href: href.split('?')[0],
       text
     };
-  }).filter(item => item.id && item.title && (item.href.includes('/vakansii/') || !item.href.includes('/predlozheniya_uslug/')));
+  }).filter(item => item.id && item.title && item.href.includes('/vakansii/'));
   return JSON.stringify({ ok: true, href: location.href, items });
 })()
 """
 
 
-def _search_url(query: str) -> str:
-    return f"https://www.avito.ru/all/vakansii?q={quote(query)}&s=104"
+def _search_url(query: str, region: str = "all") -> str:
+    return f"https://www.avito.ru/{region}/vakansii?q={quote(query)}&s=104"
+
+
+def in_vacancies(href: str) -> bool:
+    """Страница осталась в Работа/Вакансии, а не ушла в услуги или общий поиск."""
+    return bool(VACANCY_PATH.match(href or ""))
+
+
+def _load_state() -> dict:
+    try:
+        return json.loads(STATE_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _save_state(state: dict) -> None:
+    STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    STATE_PATH.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+
+
+def plan_run(state: dict, now: datetime) -> list[tuple[str, str, str]] | None:
+    """Какие (регион, подпись, запрос) идут в этот заход. None — рано или после блокировки."""
+    for key, gap in (("last_run", MIN_INTERVAL), ("blocked_at", BLOCK_COOLDOWN)):
+        raw = state.get(key)
+        if raw:
+            try:
+                if now - datetime.fromisoformat(raw) < gap:
+                    return None
+            except ValueError:
+                pass
+    offset = int(state.get("offset") or 0) % len(QUERIES)
+    batch = [QUERIES[(offset + index) % len(QUERIES)] for index in range(PER_REGION)]
+    return [(region, title, query) for region, title in REGIONS for query in batch]
 
 
 def _chrome_args() -> list[str]:
@@ -113,7 +173,7 @@ async def _page_socket() -> str | None:
         return opened.get("webSocketDebuggerUrl")
 
 
-def _orders(items: list[dict]) -> list[dict]:
+def _orders(items: list[dict], channel_title: str = "Авито Работа") -> list[dict]:
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     found: list[dict] = []
     for item in items:
@@ -121,7 +181,7 @@ def _orders(items: list[dict]) -> list[dict]:
         if not vacancy_id.isdigit():
             continue
         path = str(item.get("href") or "")
-        if "predlozheniya_uslug" in path:
+        if "predlozheniya_uslug" in path or (path and "/vakansii/" not in path):
             continue
         if path and not path.startswith("http"):
             path = "https://www.avito.ru" + path
@@ -138,7 +198,7 @@ def _orders(items: list[dict]) -> list[dict]:
             {
                 "source": "avito",
                 "channel_username": "avito",
-                "channel_title": "Авито Работа",
+                "channel_title": channel_title,
                 "channel_id": vacancy_id,
                 "message_id": int(vacancy_id),
                 "message_date": now,
@@ -164,24 +224,26 @@ async def _read_page(ws, msg_id: int) -> dict:
         return {}
 
 
-async def _fetch_query(ws, query: str, msg_id: int) -> list[dict]:
-    await _call(ws, msg_id, "Page.navigate", {"url": _search_url(query)})
+async def _fetch_query(ws, query: str, msg_id: int, region: str = "all", title: str = "Авито Работа") -> list[dict] | None:
+    """Выдача по запросу. None — Авито ограничил доступ."""
+    await _call(ws, msg_id, "Page.navigate", {"url": _search_url(query, region)})
     payload: dict = {}
     for attempt in range(8):
         await asyncio.sleep(2 if attempt else 4)
         payload = await _read_page(ws, msg_id + 1 + attempt)
         if payload.get("blocked"):
             log.warning("Авито Работа временно ограничил доступ")
+            return None
+        href = str(payload.get("href") or "")
+        if href and not in_vacancies(href) and "/vakansii" not in href:
+            log.info("Авито увёл запрос «%s» (%s) из вакансий, пропускаю", query, region)
             return []
         if payload.get("ok") and payload.get("items"):
-            return _orders(payload.get("items") or [])
-        if payload.get("ok") is False and "predlozheniya_uslug" in str(payload.get("href") or ""):
-            log.info("Авито увёл запрос «%s» в услуги", query)
-            return []
-    if not payload.get("ok"):
-        log.info("Авито увёл запрос «%s» из вакансий", query)
+            return _orders(payload.get("items") or [], title)
+    if not payload.get("ok") or not in_vacancies(str(payload.get("href") or "")):
+        log.info("Авито увёл запрос «%s» (%s) из вакансий", query, region)
         return []
-    return _orders(payload.get("items") or [])
+    return _orders(payload.get("items") or [], title)
 
 
 async def browser_html(url: str, wait: float = 4, tries: int = 5) -> str:
@@ -232,7 +294,12 @@ async def browser_cookies(url: str) -> list[dict]:
     ]
 
 
-async def fetch_orders() -> list[dict]:
+async def fetch_orders(force: bool = False) -> list[dict]:
+    state = _load_state()
+    now = datetime.now(timezone.utc)
+    plan = plan_run({} if force else state, now)
+    if plan is None:
+        return []
     await _ensure_chrome()
     if not await _port_open():
         return []
@@ -241,23 +308,27 @@ async def fetch_orders() -> list[dict]:
         log.warning("Авито Работа: нет вкладки")
         return []
     collected: dict[str, dict] = {}
+    stats: list[str] = []
     try:
-        async with websockets.connect(socket, max_size=20_000_000) as ws:
-            for index, query in enumerate(QUERIES, start=10):
+        async with websockets.connect(socket, max_size=40_000_000) as ws:
+            for index, (region, title, query) in enumerate(plan, start=10):
                 try:
-                    items = await _fetch_query(ws, query, index * 10)
+                    items = await _fetch_query(ws, query, index * 10, region, title)
                 except Exception:
                     log.warning("Авито Работа не отдал выдачу по запросу %s", query)
-                    continue
-                if not items and query == QUERIES[0]:
-                    # First empty page after a block - do not hammer the rest.
-                    sample = await _read_page(ws, 900)
-                    if sample.get("blocked"):
-                        break
+                    items = []
+                if items is None:
+                    state["blocked_at"] = now.isoformat(timespec="seconds")
+                    break
+                stats.append(f"{region}:{query}={len(items)}")
                 for item in items:
                     collected.setdefault(item["channel_id"], item)
-                await asyncio.sleep(5)
+                await asyncio.sleep(random.uniform(*PAUSE))
+            await _call(ws, 9000, "Page.navigate", {"url": BOARD_URL})
     except Exception:
         log.warning("Авито Работа: браузерная сессия не ответила")
-        return []
+    state["last_run"] = now.isoformat(timespec="seconds")
+    state["offset"] = (int(state.get("offset") or 0) + PER_REGION) % len(QUERIES)
+    _save_state(state)
+    log.info("Авито Работа: %s; всего %s", ", ".join(stats), len(collected))
     return list(collected.values())
