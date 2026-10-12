@@ -20,34 +20,71 @@ log = logging.getLogger("leads.avito")
 PORT = 9224
 CHROME = Path(os.environ.get("PROGRAMFILES", r"C:\Program Files")) / "Google" / "Chrome" / "Application" / "chrome.exe"
 PROFILE = Path(os.environ["LOCALAPPDATA"]) / "PavelLeads" / "avito-chrome"
-# Запросы проверены вручную 2026-10-12 в категории Работа/Вакансии.
-# Не брать: n8n, интеграция crm, amocrm, битрикс24, телеграм бот, разработчик сайтов, парсинг
-# (Авито уводит в услуги); tilda, python, нейросети, ии, prompt (уводит в общий поиск);
-# чат-бот, менеджер маркетплейсов, интернет-магазин (курьеры, водители, склад);
-# веб-дизайнер, дизайнер карточек, интернет-маркетолог (фильтр всё равно режет дизайн и маркетинг).
-QUERIES = (
-    "автоматизация бизнес процессов",
-    "make автоматизация",
-    "специалист по внедрению ии",
-    "разработчик ботов",
-    "разработчик чат-ботов",
-    "веб-разработчик",
-    "wordpress",
-    "программист",
-    "контент-менеджер маркетплейсов",
-    "карточки товаров",
-    "seo-специалист",
-    "seo копирайтер",
-    "smm",
-    "smm-менеджер",
-    "таргетолог",
-    "ведение соцсетей",
-    "контент-менеджер",
-    "копирайтер",
+# Запросы проверены вручную 2026-10-12 в категории Работа/Вакансии (вся Россия).
+# Не брать: n8n, интеграция crm, amocrm, битрикс24, телеграм бот, разработчик сайтов, парсинг,
+# rpa, специалист по нейросетям, chatgpt, backend разработчик (уводит в услуги или общий поиск);
+# чат-бот, менеджер маркетплейсов, интернет-магазин, интегратор, технический специалист,
+# администратор сайта, администратор crm, внедрение crm, специалист amocrm/битрикс24,
+# специалист по автоматизации, it-специалист, ведение соцсетей (курьеры, кафе, продажи, охрана);
+# no-code/low-code разработчик, промпт-инженер (пусто); сфера «IT» с запросом уводит из вакансий.
+# Сфера «Маркетинг, реклама и PR» с запросом держит выдачу чистой: там SMM и маркетологи.
+MARKETING = "marketing_reklama_i_pr-ASgBAgICAUSOC_qXkAM"
+QUERIES: tuple[tuple[str, str], ...] = (
+    ("", "автоматизация бизнес процессов"),
+    ("", "make автоматизация"),
+    ("", "инженер по автоматизации бизнес-процессов"),
+    ("", "специалист по внедрению ии"),
+    ("", "ai-специалист"),
+    ("", "ai-разработчик"),
+    ("", "специалист n8n"),
+    ("", "разработчик ботов"),
+    ("", "разработчик чат-ботов"),
+    ("", "разработчик телеграм ботов"),
+    ("", "python-разработчик"),
+    ("", "fullstack"),
+    ("", "frontend"),
+    ("", "веб-разработчик"),
+    ("", "программист"),
+    ("", "wordpress"),
+    ("", "контент-администратор сайта"),
+    ("", "технический администратор сайта"),
+    ("", "контент-менеджер маркетплейсов"),
+    ("", "карточки товаров"),
+    ("", "seo-специалист"),
+    ("", "seo копирайтер"),
+    ("", "копирайтер"),
+    ("", "контент-менеджер"),
+    ("", "таргетолог"),
+    (MARKETING, "smm"),
+    (MARKETING, "маркетолог"),
+    (MARKETING, "интернет-маркетолог"),
 )
+# Фильтр по названию вакансии (только Авито): в заголовке должно быть слово из профиля.
+TITLE_OK = re.compile(
+    r"(разраб|программист|автоматиз|\bsmm\b|смм|контент|копирайт|таргет|маркетолог|\bseo\b|сео|"
+    r"сайт|\bcrm\b|срм|битрикс|bitrix|amo|1с|1c|(?<![а-яё])ии(?![а-яё])|\bai\b|ai-|нейросет|"
+    r"бот|python|fullstack|backend|frontend|front-end|веб|\bweb|n8n|внедрен|digital|wordpress|"
+    r"tilda|тильд|интернет-магазин|интернет магазин|карточ|e-commerce|ecommerce|системн\w* администратор|"
+    r"it-|\bit\b|айти|аналитик|интегратор|no-code|low-code|продвижен|соцсет|reels|трафик)",
+    re.IGNORECASE,
+)
+# Явный шум, даже если слово профиля случайно попало в заголовок.
+TITLE_NOISE = re.compile(
+    r"(?<![а-яё])(аптек|асу тп|кипиа|охран|курьер|водител|грузчик|кассир|продавец|риелтор|риэлтор|"
+    r"менеджер по продажам|менеджер по привлечению|менеджер по работе с клиент|отдел продаж|"
+    r"оператор call|колл-центр|call-центр|платное обучение|обучение платно|с нуля, обучение)",
+    re.IGNORECASE,
+)
+
+
+def title_relevant(title: str) -> bool:
+    title = title or ""
+    return bool(TITLE_OK.search(title)) and not TITLE_NOISE.search(title)
+
+
 # Регион в пути URL и подпись в ленте.
 REGIONS = (("all", "Авито Работа"), ("sankt-peterburg", "Авито Работа · СПб"))
-PER_REGION = 5          # запросов на регион за заход, по кругу
+PER_REGION = 7          # запросов на регион за заход, по кругу (28 запросов = 4 захода)
 PAUSE = (8.0, 14.0)     # пауза между запросами, секунд
 MIN_INTERVAL = timedelta(minutes=55)
 BLOCK_COOLDOWN = timedelta(hours=3)
@@ -83,8 +120,9 @@ EXTRACT = r"""
 """
 
 
-def _search_url(query: str, region: str = "all") -> str:
-    return f"https://www.avito.ru/{region}/vakansii?q={quote(query)}&s=104"
+def _search_url(query: str, region: str = "all", section: str = "") -> str:
+    path = f"vakansii/{section}" if section else "vakansii"
+    return f"https://www.avito.ru/{region}/{path}?q={quote(query)}&s=104"
 
 
 def in_vacancies(href: str) -> bool:
@@ -104,7 +142,7 @@ def _save_state(state: dict) -> None:
     STATE_PATH.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
 
 
-def plan_run(state: dict, now: datetime) -> list[tuple[str, str, str]] | None:
+def plan_run(state: dict, now: datetime) -> list[tuple[str, str, str, str]] | None:
     """Какие (регион, подпись, запрос) идут в этот заход. None — рано или после блокировки."""
     for key, gap in (("last_run", MIN_INTERVAL), ("blocked_at", BLOCK_COOLDOWN)):
         raw = state.get(key)
@@ -116,7 +154,7 @@ def plan_run(state: dict, now: datetime) -> list[tuple[str, str, str]] | None:
                 pass
     offset = int(state.get("offset") or 0) % len(QUERIES)
     batch = [QUERIES[(offset + index) % len(QUERIES)] for index in range(PER_REGION)]
-    return [(region, title, query) for region, title in REGIONS for query in batch]
+    return [(region, title, section, query) for region, title in REGIONS for section, query in batch]
 
 
 def _chrome_args() -> list[str]:
@@ -183,6 +221,8 @@ def _orders(items: list[dict], channel_title: str = "Авито Работа") -
         path = str(item.get("href") or "")
         if "predlozheniya_uslug" in path or (path and "/vakansii/" not in path):
             continue
+        if not title_relevant(str(item.get("title") or "")):
+            continue
         if path and not path.startswith("http"):
             path = "https://www.avito.ru" + path
         text = ". ".join(
@@ -224,9 +264,11 @@ async def _read_page(ws, msg_id: int) -> dict:
         return {}
 
 
-async def _fetch_query(ws, query: str, msg_id: int, region: str = "all", title: str = "Авито Работа") -> list[dict] | None:
+async def _fetch_query(
+    ws, query: str, msg_id: int, region: str = "all", title: str = "Авито Работа", section: str = ""
+) -> list[dict] | None:
     """Выдача по запросу. None — Авито ограничил доступ."""
-    await _call(ws, msg_id, "Page.navigate", {"url": _search_url(query, region)})
+    await _call(ws, msg_id, "Page.navigate", {"url": _search_url(query, region, section)})
     payload: dict = {}
     for attempt in range(8):
         await asyncio.sleep(2 if attempt else 4)
@@ -311,9 +353,9 @@ async def fetch_orders(force: bool = False) -> list[dict]:
     stats: list[str] = []
     try:
         async with websockets.connect(socket, max_size=40_000_000) as ws:
-            for index, (region, title, query) in enumerate(plan, start=10):
+            for index, (region, title, section, query) in enumerate(plan, start=10):
                 try:
-                    items = await _fetch_query(ws, query, index * 10, region, title)
+                    items = await _fetch_query(ws, query, index * 10, region, title, section)
                 except Exception:
                     log.warning("Авито Работа не отдал выдачу по запросу %s", query)
                     items = []
