@@ -14,6 +14,7 @@ from app import db
 from app.filters import intake_hits, is_offer_card, load_sources
 from app.avito import fetch_orders as fetch_avito
 from app.freelance_ru import fetch_orders as fetch_freelance_ru
+from app.hh import fetch_orders as fetch_hh
 from app.kwork import fetch_orders as fetch_kwork
 from app.profi import fetch_orders
 from app.weblancer import fetch_orders as fetch_weblancer
@@ -21,7 +22,6 @@ from app.scorer import score_lead
 
 log = logging.getLogger("leads.boards")
 
-HH_QUERIES = ("n8n", "автоматизация", "чат-бот", "ии агент")
 PAUSE_SECONDS = 20 * 60
 HEADERS = {"User-Agent": "PavelLeadsInbox/1.0"}
 
@@ -146,21 +146,14 @@ async def poll_once() -> int:
     sources = load_sources()
     saved = 0
     async with httpx.AsyncClient(timeout=20, follow_redirects=True, headers=HEADERS) as client:
-        for query in HH_QUERIES:
-            try:
-                response = await client.get(
-                    "https://hh.ru/search/vacancy/rss",
-                    params={"text": query, "area": "113"},
-                )
-                response.raise_for_status()
-                items = _hh_items(response.text)
-            except Exception:
-                log.warning("HeadHunter не отдал ленту по запросу %s", query)
-                continue
-            for item in items[:15]:
-                if await _save(item, sources):
-                    saved += 1
-            await asyncio.sleep(1)
+        try:
+            hh_items = await fetch_hh()
+        except Exception:
+            log.warning("HeadHunter: сборщик упал")
+            hh_items = []
+        for item in hh_items:
+            if await _save(item, sources):
+                saved += 1
         try:
             response = await client.get("https://www.fl.ru/projects/", params={"kind": "5"})
             response.raise_for_status()
