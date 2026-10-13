@@ -17,6 +17,29 @@ HEADERS = {
     )
 }
 MOSCOW = timezone(timedelta(hours=3))
+DEFAULT_MAX_OFFERS = 9
+
+
+def max_offers() -> int:
+    """Порог из config/profile.yaml: kwork.max_offers (включительно)."""
+    from app.filters import load_profile
+
+    raw = (load_profile().get("kwork") or {}).get("max_offers")
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return DEFAULT_MAX_OFFERS
+
+
+def _offers(item: dict) -> int | None:
+    """«Предложений: N» на kwork.ru/projects — поле kwork_count. None, если не известно."""
+    raw = item.get("kwork_count")
+    if isinstance(raw, bool) or raw is None or raw == "":
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
 
 
 def _when(value: str) -> datetime | None:
@@ -46,11 +69,17 @@ def _price(item: dict) -> str:
 
 
 def _text(item: dict) -> str:
-    parts = [item.get("name") or "", item.get("description") or "", _price(item)]
+    offers = _offers(item)
+    parts = [
+        item.get("name") or "",
+        item.get("description") or "",
+        _price(item),
+        f"Предложений на Kwork: {offers}" if offers is not None else "",
+    ]
     return ". ".join(str(part).strip() for part in parts if str(part).strip())
 
 
-def _orders(html: str) -> list[dict]:
+def _orders(html: str, limit: int | None = None) -> list[dict]:
     marker = '"wantsListData":'
     start = html.find(marker)
     if start < 0:
@@ -67,6 +96,9 @@ def _orders(html: str) -> list[dict]:
         project_id = str(item.get("id") or "")
         if not project_id.isdigit():
             continue
+        offers = _offers(item)
+        if limit is not None and offers is not None and offers > limit:
+            continue
         published = _when(str(item.get("date_active") or item.get("date_create") or ""))
         found.append(
             {
@@ -79,6 +111,7 @@ def _orders(html: str) -> list[dict]:
                 "text": _text(item),
                 "url": f"https://kwork.ru/projects/{project_id}",
                 "fresh": bool(published and published >= now - timedelta(days=1)),
+                "offers": offers,
             }
         )
     return found
@@ -86,15 +119,19 @@ def _orders(html: str) -> list[dict]:
 
 async def fetch_orders() -> list[dict]:
     found: list[dict] = []
+    limit = max_offers()
+    seen = 0
     try:
         async with httpx.AsyncClient(timeout=25, follow_redirects=True, headers=HEADERS) as client:
             for page in (1, 2):
                 response = await client.get(BOARD_URL, params={"page": page})
                 response.raise_for_status()
-                found.extend(_orders(response.text))
+                seen += len(_orders(response.text))
+                found.extend(_orders(response.text, limit))
     except httpx.HTTPError:
         log.warning("Kwork не отдал список заказов")
         return []
+    log.info("Kwork: заказов %s, отброшено по числу предложений (> %s): %s", seen, limit, seen - len(found))
     unique: dict[str, dict] = {}
     for item in found:
         unique.setdefault(item["channel_id"], item)
