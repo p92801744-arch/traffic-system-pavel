@@ -75,10 +75,29 @@ def spawn_restart(requirements: bool) -> None:
         flags = 0x00000008 | 0x00000200 | BREAKAWAY  # DETACHED | NEW_PROCESS_GROUP | BREAKAWAY_FROM_JOB
     kwargs = dict(cwd=str(ROOT), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                   stderr=subprocess.DEVNULL, close_fds=True)
+    if os.name == "nt" and _spawn_outside_job(args):
+        return
     try:
         subprocess.Popen(args, creationflags=flags, **kwargs)
     except OSError:
         subprocess.Popen(args, creationflags=flags & ~BREAKAWAY, **kwargs)
+
+
+def _spawn_outside_job(args: list[str]) -> bool:
+    """Запуск через WMI: процесс рождается вне задачи планировщика,
+    поэтому Stop-ScheduledTask его не убивает (флаг breakaway задача не разрешает)."""
+    line = subprocess.list2cmdline(args).replace("'", "''")
+    folder = str(ROOT).replace("'", "''")
+    command = (
+        "$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create "
+        f"-Arguments @{{CommandLine='{line}'; CurrentDirectory='{folder}'}}; exit $r.ReturnValue"
+    )
+    try:
+        done = subprocess.run(["powershell", "-NoProfile", "-Command", command],
+                              capture_output=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return done.returncode == 0
 
 
 def _log(text: str) -> None:
@@ -92,6 +111,7 @@ def _ps(command: str) -> int:
 
 
 def restart(pip: bool = False) -> int:
+    _log("перезапуск начат, pid {}".format(os.getpid()))
     time.sleep(2)  # дать панели отдать страницу «обновляюсь»
     if pip:
         done = subprocess.run([sys.executable, "-m", "pip", "install", "-q", "-r", str(ROOT / "requirements.txt")],
@@ -101,7 +121,7 @@ def restart(pip: bool = False) -> int:
 
     if os.name == "nt":
         _ps(f"Stop-ScheduledTask -TaskName {TASK_NAME}")
-    code = stop_supervisor(keep_pids={os.getppid()})
+    code = stop_supervisor(keep_pids={os.getpid()})
     _log(f"прежние процессы остановлены, код {code}")
     time.sleep(2)
     if os.name != "nt":
