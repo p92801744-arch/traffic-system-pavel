@@ -294,6 +294,33 @@ async def _write(lead_id: int, instruction: str) -> None:
         await conn.close()
 
 
+AUTO_REPLY_SOURCES = {"kwork"}
+
+
+def auto_reply_allowed(lead: dict | None) -> bool:
+    """Отклик сам пишется только для Kwork (решение Павла 2026-10-13). Остальным — по кнопке."""
+    return bool(lead) and (lead.get("source") or "") in AUTO_REPLY_SOURCES
+
+
+async def auto_reply(lead_id: int, timeout: float = 240) -> None:
+    """Для Kwork: написать отклик и дождаться его (с ограничением по времени)."""
+    conn = await db.connect()
+    try:
+        lead = await db.get_lead(conn, lead_id)
+    finally:
+        await conn.close()
+    if not auto_reply_allowed(lead):
+        return
+    await start_reply(lead_id)
+    async with _guard:
+        job = _jobs.get(lead_id)
+    if job:
+        try:
+            await asyncio.wait_for(asyncio.shield(job), timeout)
+        except asyncio.TimeoutError:
+            log.info("Отклик Kwork %s пишется дольше %s с, карточку шлю без него", lead_id, timeout)
+
+
 async def start_reply(lead_id: int) -> None:
     """Пишет отклик в фоне, если готового текста ещё нет."""
     async with _guard:

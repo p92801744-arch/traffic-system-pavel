@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Обновляю ящик</title>
+  <link rel="stylesheet" href="/static/style.css?v=3">
+</head>
+<body>
+  <div class="wrap">
+    <h1>{% if restarting %}Обновляюсь…{% else %}Собираю заявки…{% endif %}</h1>
+    <p class="muted">{{ message }}</p>
+    <p id="state" class="muted">{% if restarting %}Ящик перезапускается, страница откроется сама.{% else %}Через несколько секунд покажу новые заявки.{% endif %}</p>
+    <p><a class="btn" href="/?fresh=1">Открыть новые сейчас</a></p>
+  </div>
+  <script>
+    const restarting = {{ 'true' if restarting else 'false' }};
+    const state = document.getElementById("state");
+    async function alive() {
+      try {
+        const r = await fetch("/health", {cache: "no-store"});
+        return r.ok;
+      } catch (e) { return false; }
+    }
+    async function run() {
+      if (!restarting) {
+        setTimeout(() => location.href = "/?fresh=1", 8000);
+        return;
+      }
+      let wentDown = false;
+      for (let i = 0; i < 120; i++) {
+        await new Promise(r => setTimeout(r, 2000));
+        const up = await alive();
+        if (!up) { wentDown = true; state.textContent = "Ящик перезапускается…"; continue; }
+        if (wentDown || i > 20) {
+          state.textContent = "Ящик снова работает, собираю заявки…";
+          try { await fetch("/collect", {method: "POST"}); } catch (e) {}
+          setTimeout(() => location.href = "/?fresh=1", 6000);
+          return;
+        }
+      }
+      state.textContent = "Ящик долго не поднимается. Обнови страницу позже.";
+    }
+    run();
+  </script>
+</body>
+</html>

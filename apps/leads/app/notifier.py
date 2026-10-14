@@ -90,6 +90,9 @@ def _source_label(lead: dict) -> str:
     return label
 
 
+REPLY_LIMIT = 1800
+
+
 def _short(text: str, limit: int) -> str:
     clean = re.sub(r"\s+", " ", (text or "")).strip()
     if len(clean) <= limit:
@@ -113,6 +116,11 @@ def _format_lead(lead: dict) -> str:
     if excerpt:
         lines.append("")
         lines.append(html.escape(excerpt))
+    draft = (lead.get("reply_text") or "").strip()
+    if draft and (lead.get("source") or "") == "kwork":
+        lines.append("")
+        lines.append("<b>Отклик:</b>")
+        lines.append(html.escape(_short(draft, REPLY_LIMIT)))
     url = (lead.get("url") or "").strip()
     if url:
         lines.append("")
@@ -534,9 +542,10 @@ async def _take_lead(lead_id: int, chat_id: int | None) -> None:
             if chat_id:
                 await _send_text(chat_id, "Не нашёл заявку")
             return
-        from app.reply import start_reply
+        from app.reply import auto_reply_allowed, start_reply
 
-        await start_reply(lead_id)
+        if auto_reply_allowed(lead):
+            await start_reply(lead_id)
     except Exception as exc:
         log.error("Не взял заявку %s: %s", lead_id, _redact(str(exc)))
         if chat_id:

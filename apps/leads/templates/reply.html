@@ -40,7 +40,7 @@
     {% elif reply_state != 'writing' %}
     <form method="post" action="/leads/{{ lead.id }}/reply">
       <input type="hidden" name="again" value="1">
-      <button class="btn primary" type="submit">Написать ещё раз</button>
+      <button class="btn primary" type="submit">{% if reply_state == 'error' %}Написать ещё раз{% else %}Написать отклик{% endif %}</button>
     </form>
     {% endif %}
     {% if lead.write_url %}

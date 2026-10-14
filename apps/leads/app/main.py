@@ -4,6 +4,7 @@ import json
 import logging
 import asyncio
 from contextlib import asynccontextmanager
+from urllib.parse import quote
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -11,7 +12,7 @@ from fastapi.templating import Jinja2Templates
 
 from app import boards, chat_rating, chat_scan, collector, db, lessons, mailings, networking, notifier, scorer
 from app.filters import candidate_channels, configured_channels, intake_hits, load_sources
-from app import reply
+from app import reply, updater
 from app.servicekit import current_role, embed_workers
 from app.settings import ROOT, settings
 
@@ -136,6 +137,8 @@ async def feed(
     status: str | None = None,
     channel: str | None = None,
     show_low: int | None = None,
+    fresh: int | None = None,
+    note: str | None = None,
 ):
     authorized = False
     try:
@@ -156,12 +159,16 @@ async def feed(
 
     conn = await db.connect()
     try:
-        leads = await db.list_leads(
-            conn,
-            status=status if status in FEED_STATUSES else "new",
-            channel=channel or None,
-            hide_low=(show_low == 0) if show_low is not None else False,
-        )
+        if fresh:
+            leads = await db.list_leads(conn, unseen=True, channel=channel or None, hide_low=not show_low, limit=200)
+        else:
+            leads = await db.list_leads(
+                conn,
+                status=status if status in FEED_STATUSES else "new",
+                channel=channel or None,
+                hide_low=(show_low == 0) if show_low is not None else False,
+            )
+        unseen_count = await db.count_unseen(conn)
         for lead in leads:
             lead["keyword_list"] = _decode_keywords(lead.get("keywords"))
         counts = await db.stats(conn)
@@ -192,6 +199,9 @@ async def feed(
         channel=channel or "",
         page="feed",
         scorer_on=True,
+        fresh=bool(fresh),
+        unseen_count=unseen_count,
+        note=(note or "")[:600],
     )
 
 
@@ -425,8 +435,9 @@ async def reply_page(request: Request, lead_id: int):
         lead = await db.get_lead(conn, lead_id)
         if not lead:
             return RedirectResponse("/", status_code=303)
+        await db.mark_seen(conn, lead_id)
         state = lead.get("reply_state") or ""
-        if state not in ("writing", "ready", "error"):
+        if state not in ("writing", "ready", "error") and reply.auto_reply_allowed(lead):
             await reply.start_reply(lead_id)
             lead = await db.get_lead(conn, lead_id) or lead
     finally:
@@ -532,14 +543,15 @@ async def update_status(lead_id: int, status: str = Form(...), next: str = Form(
     allowed = {"new", "take", "contacted"}
     conn = await db.connect()
     try:
-        if not await db.get_lead(conn, lead_id):
+        lead = await db.get_lead(conn, lead_id)
+        if not lead:
             return _lead_missing()
         if status not in allowed:
             return RedirectResponse("/", status_code=303)
         await db.set_status(conn, lead_id, status)
     finally:
         await conn.close()
-    if status == "take":
+    if status == "take" and reply.auto_reply_allowed(lead):
         await reply.start_reply(lead_id)
     return RedirectResponse(_safe_next(next), status_code=303)
 
@@ -560,6 +572,7 @@ async def reject_with_reason(
         if not text:
             return RedirectResponse(_safe_next(next), status_code=303)
         await db.reject_lead(conn, lead_id, text)
+        await db.mark_seen(conn, lead_id)
     finally:
         await conn.close()
     lessons.add_lesson(text, lead_id, about=(lead or {}).get("text") or "")
@@ -585,6 +598,50 @@ async def _collect_manual() -> None:
             log.info("Ручной сбор Telegram: %s", result)
         except Exception:
             log.exception("Ручной сбор Telegram не удался")
+
+
+@app.get("/leads/{lead_id}/open")
+async def open_lead(lead_id: int, to: str = "url"):
+    """Отметить, что Павел открыл заявку, и увести на неё."""
+    conn = await db.connect()
+    try:
+        lead = await db.get_lead(conn, lead_id)
+        if not lead:
+            return _lead_missing()
+        await db.mark_seen(conn, lead_id)
+    finally:
+        await conn.close()
+    target = (lead.get("write_url") if to == "write" else lead.get("url")) or ""
+    if not target.startswith(("https://", "http://", "tg://")):
+        return RedirectResponse("/", status_code=303)
+    return RedirectResponse(target, status_code=303)
+
+
+@app.post("/leads/seen-all")
+async def mark_all_seen():
+    conn = await db.connect()
+    try:
+        await conn.execute("UPDATE leads SET seen_at = datetime('now') WHERE status = 'new' AND seen_at IS NULL")
+        await conn.commit()
+    finally:
+        await conn.close()
+    return RedirectResponse("/?fresh=1", status_code=303)
+
+
+@app.post("/update")
+async def update_inbox(request: Request):
+    """«Обновить ящик»: обновление кода при наличии, затем сбор и лента непросмотренных."""
+    info = await asyncio.to_thread(updater.check)
+    if info["state"] == "ahead":
+        pulled = await asyncio.to_thread(updater.pull)
+        if pulled["ok"]:
+            updater.spawn_restart(pulled["requirements"])
+            return render(request, "updating.html", message=pulled["message"], restarting=True, page="")
+        asyncio.create_task(_collect_manual())
+        return RedirectResponse("/?fresh=1&note=" + quote(pulled["message"]), status_code=303)
+    asyncio.create_task(_collect_manual())
+    note = "Код свежий, собираю заявки." if info["state"] == "none" else info["message"]
+    return render(request, "updating.html", message=note, restarting=False, page="")
 
 
 @app.post("/collect")

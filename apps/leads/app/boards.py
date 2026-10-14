@@ -131,6 +131,13 @@ async def _save(item: dict, sources: dict) -> bool:
             return False
         score = await score_lead(item["text"], item["channel_username"])
         await db.save_score(conn, lead_id, score)
+        if item["source"] == "kwork":
+            from app.reply import auto_reply
+
+            try:
+                await auto_reply(lead_id)
+            except Exception:
+                log.exception("Отклик Kwork для %s не собрался", lead_id)
         if item["fresh"]:
             from app.notifier import send_lead
 

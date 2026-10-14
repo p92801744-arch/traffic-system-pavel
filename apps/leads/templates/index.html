@@ -16,12 +16,31 @@
       <div class="stats">
         <span class="pill">всего {{ counts.total }}</span>
         <span class="pill">новые {{ counts.new_count }}</span>
+        <a class="pill" href="/?fresh=1">Не смотрел {{ unseen_count }}</a>
         <a class="pill" href="/taken">взять {{ counts.take_count }}</a>
         <span class="pill">высокий чек {{ counts.high_ticket_count }}</span>
       </div>
     </div>
 
+    <form class="update-bar" method="post" action="/update">
+      <button class="btn primary big" type="submit">Обновить ящик</button>
+      <span class="muted">Проверит обновление кода, соберёт заявки со всех источников и покажет новые, которые вы ещё не смотрели.</span>
+    </form>
+    {% if note %}<div class="error">{{ note }}</div>{% endif %}
+
     {% include "nav.html" %}
+
+    {% if fresh %}
+      <div class="fresh-bar">
+        <strong>Новые, ещё не смотрели: {{ unseen_count }}</strong>
+        <a class="btn" href="/">Вся лента</a>
+        {% if leads %}
+        <form class="inline" method="post" action="/leads/seen-all" onsubmit="return confirm('Отметить все как просмотренные?');">
+          <button class="btn" type="submit">Отметить все просмотренными</button>
+        </form>
+        {% endif %}
+      </div>
+    {% endif %}
 
     <div class="filters">
       <form class="inline" method="post" action="/collect">
@@ -84,12 +103,12 @@
         {% endif %}
         <div class="actions">
           {% if lead.url %}
-            <a class="btn" href="{{ lead.url }}" target="_blank" rel="noreferrer">Открыть в Telegram</a>
+            <a class="btn" href="/leads/{{ lead.id }}/open" target="_blank" rel="noreferrer">Открыть в Telegram</a>
           {% endif %}
           {% if lead.write_url %}
-            <a class="btn take" href="{{ lead.write_url }}" target="_blank" rel="noreferrer">Написать</a>
+            <a class="btn take" href="/leads/{{ lead.id }}/open?to=write" target="_blank" rel="noreferrer">Написать</a>
           {% endif %}
-          <a class="btn ok" href="/leads/{{ lead.id }}/reply">Написать отклик</a>
+          <a class="btn ok" href="/leads/{{ lead.id }}/reply">{% if lead.source == 'kwork' and lead.reply_state == 'ready' %}Отклик готов · {% endif %}Написать отклик</a>
           <form class="inline" method="post" action="/leads/{{ lead.id }}/status">
             <input type="hidden" name="status" value="take">
             <input type="hidden" name="next" value="/">

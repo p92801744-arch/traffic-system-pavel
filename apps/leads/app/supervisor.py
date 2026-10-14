@@ -839,7 +839,7 @@ def _command_for(pid: int, processes: list[dict]) -> str:
     return ""
 
 
-def stop_supervisor() -> int:
+def stop_supervisor(keep_pids: set[int] | None = None) -> int:
     """Гасит супервизор и любой python -m app этого проекта, каким бы интерпретатором его ни запустили."""
     _release_supervisor_lock()
     processes = list_processes()
@@ -849,7 +849,7 @@ def stop_supervisor() -> int:
         processes,
         root=ROOT,
         port_pids=port_pids,
-        own_pids={os.getpid()},
+        own_pids={os.getpid(), *(keep_pids or set())},
     )
     for row in targets:
         print(f"Останавливаю прежний процесс {row['pid']}: {row['command']}")

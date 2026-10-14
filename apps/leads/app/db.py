@@ -146,6 +146,7 @@ LEAD_EXTRA_COLUMNS = {
     "reply_state": "TEXT",
     "reply_error": "TEXT",
     "bot_sent_at": "TEXT",
+    "seen_at": "TEXT",
 }
 
 
@@ -251,9 +252,13 @@ async def list_leads(
     hide_low: bool = True,
     channel: str | None = None,
     limit: int = 80,
+    unseen: bool = False,
 ) -> list[dict]:
     clauses = ["1=1"]
     args: list = []
+    if unseen:
+        # «Не тронутые»: новые, которые Павел ещё не открывал, не брал, не отклонял и не просил отклик.
+        clauses.append("status = 'new' AND seen_at IS NULL")
     if statuses:
         marks = ",".join("?" for _ in statuses)
         clauses.append(f"status IN ({marks})")
@@ -272,7 +277,7 @@ async def list_leads(
     sql = f"""
         SELECT * FROM leads
         WHERE {' AND '.join(clauses)}
-        ORDER BY message_date DESC, id DESC
+        ORDER BY {"id DESC" if unseen else "message_date DESC, id DESC"}
         LIMIT ?
     """
     args.append(limit)
@@ -329,8 +334,24 @@ async def unsent_bot_leads(
 
 
 async def set_status(db: aiosqlite.Connection, lead_id: int, status: str) -> None:
-    await db.execute("UPDATE leads SET status = ? WHERE id = ?", (status, lead_id))
+    await db.execute(
+        "UPDATE leads SET status = ?, seen_at = COALESCE(seen_at, ?) WHERE id = ?",
+        (status, _now(), lead_id),
+    )
     await db.commit()
+
+
+async def mark_seen(db: aiosqlite.Connection, lead_id: int) -> None:
+    await db.execute("UPDATE leads SET seen_at = COALESCE(seen_at, ?) WHERE id = ?", (_now(), lead_id))
+    await db.commit()
+
+
+async def count_unseen(db: aiosqlite.Connection) -> int:
+    cur = await db.execute(
+        "SELECT COUNT(*) FROM leads WHERE status = 'new' AND seen_at IS NULL AND (fit IS NULL OR fit >= 3)"
+    )
+    row = await cur.fetchone()
+    return int(row[0] if row else 0)
 
 
 async def mark_reply(db: aiosqlite.Connection, lead_id: int, state: str, error: str = "") -> None:

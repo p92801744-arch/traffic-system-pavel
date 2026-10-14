@@ -215,7 +215,7 @@ def test_later_and_done_update_status(monkeypatch):
     asyncio.run(go())
 
 
-def test_old_take_callback_still_starts_a_draft(monkeypatch):
+def test_take_callback_does_not_auto_draft_non_kwork(monkeypatch):
     started: list[int] = []
 
     async def fake_post(method, payload):
@@ -239,7 +239,8 @@ def test_old_take_callback_still_starts_a_draft(monkeypatch):
         finally:
             await conn.close()
         assert saved["status"] == "take"
-        assert started == [lead["id"]]
+        # Сам отклик пишется только для Kwork (решение 2026-10-13); это Telegram-заявка.
+        assert started == []
 
     asyncio.run(go())
 
