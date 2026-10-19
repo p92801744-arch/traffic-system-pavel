@@ -54,3 +54,28 @@ powershell -ExecutionPolicy Bypass -File .\scripts\uninstall-autostart.ps1
 - `config/sources.yaml` — каналы, ключевые слова, стоп-слова
 - `config/profile.yaml` — кого считать своим заказом
 - `data/` — база SQLite и сессия Telegram, в git не попадают
+
+## Отклики из командной строки
+
+Для агента и для ручной работы, без браузера. Запускать из `apps\leads`, автозапуск можно не останавливать: команда сама попросит у слушателя сессию Telegram и вернёт её.
+
+```powershell
+cd C:\Users\Павел\Desktop\Pavel\apps\leads
+# новые заявки без отклика, JSON с полным текстом, источником, ссылкой и автором
+.\.venv\Scripts\python.exe -m app.outreach list-new --limit 20
+.\.venv\Scripts\python.exe -m app.outreach list-new --source telegram --min-fit 3 --since-hours 24
+
+# отправить отклик в Telegram (текст в файле UTF-8, так кириллица не ломается)
+.\.venv\Scripts\python.exe -m app.outreach send 123 --text-file reply.txt --dry-run
+.\.venv\Scripts\python.exe -m app.outreach send 123 --text-file reply.txt            # auto: личка, если есть контакт, иначе тред
+.\.venv\Scripts\python.exe -m app.outreach send 123 --text-file reply.txt --mode thread
+
+# отклик ушёл на бирже (Kwork, HH, Авито) — отметить в базе
+.\.venv\Scripts\python.exe -m app.outreach mark-replied 123 --text-file reply.txt --via kwork
+```
+
+В базе: `outreach_state` (sent, marked, error), `outreach_text`, `outreach_via`, `outreach_at`, статус заявки становится `contacted`. Лог отправок — таблица `outreach_log`.
+Защита: одна заявка — один отклик, одному контакту не чаще раза в 7 дней, пауза 90 с, не больше 12 в час и 40 в сутки, после FloodWait — пауза, сколько попросил Telegram. Настройки — раздел `outreach` в `config/profile.yaml`.
+Код выхода 0 — успех, 2 — отказ (причина в JSON `error`).
+
+Кейсы для откликов: `docs/cases/smm_cases.md` (SMM, канал команды) и `docs/cases/cases.md` (ИИ, автоматизация, сайты).

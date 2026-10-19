@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import re
 
-from app.filters import client_opens, is_hiring, load_profile, not_my_job
+from app.filters import SMM_TOPIC, client_opens, is_hiring, load_profile, not_my_job, rubles
 from app.lessons import learned_block
 
 log = logging.getLogger("leads.scorer")
@@ -167,6 +167,50 @@ CRYPTO = re.compile(
     r"(крипт|usdt|казино|пушкинск\w+ карт)",
     re.IGNORECASE,
 )
+
+
+DEFAULT_SMM_TAKE = 40_000
+
+
+def smm_take_budget() -> int:
+    """Порог, с которого SMM берём уверенно (правило Павла: SMM не дешевле 40 000 ₽)."""
+    raw = (load_profile().get("smm") or {}).get("take_budget_rub")
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return DEFAULT_SMM_TAKE
+
+
+def _rub(value: int) -> str:
+    return f"{value:,}".replace(",", " ")
+
+
+def _smm_score(text: str) -> dict:
+    offer = "ведение и продвижение соцсетей с командой, кейсы — канал команды"
+    amounts = rubles(text)
+    top = max(amounts) if amounts else None
+    take = smm_take_budget()
+    if top is None:
+        return _score(
+            3,
+            f"Отдал: заказчик ищет SMM, бюджета в тексте нет. Уточни бюджет, порог — {_rub(take)} ₽.",
+            paid=True,
+            offer=offer,
+        )
+    if top >= take:
+        return _score(
+            4,
+            f"Отдал: SMM-заказ с бюджетом {_rub(top)} ₽, это не ниже порога {_rub(take)} ₽.",
+            paid=True,
+            high=True,
+            offer=offer,
+        )
+    return _score(
+        2,
+        f"Почти не отдавал: SMM с бюджетом {_rub(top)} ₽, это ниже {_rub(take)} ₽.",
+        paid=True,
+        offer=offer,
+    )
 
 
 def _reject(why: str) -> dict:
@@ -348,6 +392,10 @@ def judge(text: str, channel: str | None = None) -> dict:
             1,
             "Не отдавал бы: человек продаёт свои услуги. Тебе нужен заказчик, который платит, а не конкурент.",
         )
+
+    # SMM-заявки раньше падали в «не бот, не сайт» с баллом 2 и не доходили до ленты.
+    if client and SMM_TOPIC.search(text) and not core:
+        return _smm_score(text)
 
     if client and ai:
         high = shop or bool(re.search(r"внедри|под ключ|сопровожден", text, re.IGNORECASE))
