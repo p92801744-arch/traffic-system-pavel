@@ -176,6 +176,77 @@ def test_mark_replied_for_board_lead_and_dry_run():
     asyncio.run(go())
 
 
+def test_skip_sets_junk_and_drops_out_of_list_new():
+    async def seed():
+        conn = await outreach.open_db()
+        try:
+            return await _seed(conn, _lead(1), _lead(2), _lead(3))
+        finally:
+            await conn.close()
+
+    kept, first, second = asyncio.run(seed())
+    assert outreach.main(["skip", str(first), str(second), "--reason", "исполнитель рекламирует себя"]) == 0
+
+    async def check():
+        conn = await outreach.open_db()
+        try:
+            assert [row["id"] for row in await outreach.list_new(conn)] == [kept]
+            lead = await db.get_lead(conn, first)
+            assert lead["status"] == "junk"
+            assert lead["reject_reason"] == "исполнитель рекламирует себя"
+            cur = await conn.execute(
+                "SELECT via, ok, error FROM outreach_log WHERE lead_id = ? ORDER BY id DESC LIMIT 1",
+                (first,),
+            )
+            logged = await cur.fetchone()
+            assert logged[0] == "skip" and logged[1] == 0 and "исполнитель" in logged[2]
+            visible = await db.list_leads(conn, status="new", hide_low=False)
+            assert first not in [row["id"] for row in visible]
+            assert second not in [row["id"] for row in visible]
+        finally:
+            await conn.close()
+
+    asyncio.run(check())
+    assert outreach.main(["skip", "999999", "--reason", "нет такой заявки"]) == 2
+
+
+def test_skip_requires_a_reason():
+    with pytest.raises(SystemExit):
+        outreach.main(["skip", "1"])
+
+
+def test_stale_hides_old_unanswered_from_list_new():
+    async def go():
+        conn = await outreach.open_db()
+        try:
+            old_new, recent, old_take, old_sent = await _seed(conn, _lead(1), _lead(2), _lead(3), _lead(4))
+            old = "2026-10-01T08:00:00+00:00"
+            fresh = "2026-10-18T08:00:00+00:00"
+            await conn.execute("UPDATE leads SET message_date = ?, created_at = ? WHERE id = ?", (old, old, old_new))
+            await conn.execute("UPDATE leads SET message_date = ?, created_at = ? WHERE id = ?", (fresh, fresh, recent))
+            await conn.execute(
+                "UPDATE leads SET status = 'take', message_date = ?, created_at = ? WHERE id = ?",
+                (old, old, old_take),
+            )
+            await conn.execute(
+                "UPDATE leads SET outreach_state = 'sent', status = 'contacted', message_date = ?, created_at = ? WHERE id = ?",
+                (old, old, old_sent),
+            )
+            await conn.commit()
+            result = await outreach.mark_stale(conn, 5)
+            assert result["days"] == 5
+            assert set(result["stale"]) == {old_new, old_take}
+            listed = {row["id"] for row in await outreach.list_new(conn)}
+            assert listed == {recent}
+            assert (await db.get_lead(conn, old_sent))["status"] == "contacted"
+            assert (await db.get_lead(conn, old_new))["status"] == "stale"
+        finally:
+            await conn.close()
+
+    asyncio.run(go())
+    assert outreach.main(["stale", "--days", "5"]) == 0
+
+
 def test_flood_wait_pauses_next_send():
     class Flood(Exception):
         seconds = 600

@@ -103,13 +103,19 @@ def test_review_rejected():
 
 
 def test_hiring_not_rejected():
-    # ??????? ????? 2026-10-12: ??????? ???????? ?? ????????, is_hiring ?????? ????????.
-    text = (
+    # Удалённый штат по-прежнему не режем. Офис без удалёнки — мусор (2026-10-19).
+    remote = (
+        "Ищем в штат разработчика чат-ботов и n8n, оклад 150 000 ₽ в месяц, "
+        "удалённо, полная занятость."
+    )
+    office = (
         "Ищем в штат разработчика чат-ботов и n8n, оклад 150 000 ₽ в месяц, "
         "офис в Москве, полная занятость."
     )
-    assert is_hiring(text)
-    assert not_my_job(text) is None
+    assert is_hiring(remote)
+    assert not_my_job(remote) is None
+    assert is_hiring(office)
+    assert not_my_job(office) == "офисная вакансия, не удалёнка"
 
 
 def test_project_contractor_is_not_staff():

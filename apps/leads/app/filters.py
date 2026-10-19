@@ -415,13 +415,73 @@ SMM_SOFT = re.compile(
     re.IGNORECASE,
 )
 
-# Работа бесплатно, за отзыв, за портфолио или по бартеру.
+# Работа бесплатно, за отзыв, за портфолио, по бартеру или только за процент.
 FREE_WORK = re.compile(
     r"(без оплаты|безвозмездн|за отзыв|за опыт|(?:для|за)\s+портфолио|"
     r"по бартеру|на бартер|бартерн\w+|волонт[её]р\w*|"
     r"(?:работ\w*|сделать|ведени\w*|вест\w*|помо\w+)\s+(?:[а-яё]+\s+){0,3}бесплатно|"
     r"бесплатно\s+(?:[а-яё]+\s+){0,2}(?:для|за)\s+(?:портфолио|отзыв|опыт)|"
-    r"оплата\s+(?:только\s+)?(?:с|за)\s+(?:процент|%)|только\s+за\s+(?:процент|%))",
+    r"оплата\s+(?:только\s+)?(?:с|за)\s+(?:процент|%)|только\s+за\s+(?:процент|%)|"
+    r"оплата\s+процентом|только\s+процент|"
+    r"процент\w*\s+от\s+(?:результат|продаж|заказ|сделк)|"
+    r"зарабатывать\s+процентом|"
+    r"%\s*(?:с|от)\s+(?:продаж|заказ|сделк|результат)|"
+    r"на\s+%\s+с\s+продаж)",
+    re.IGNORECASE,
+)
+
+# Исполнитель продаёт себя. «Кто сделает» и «пришлите портфолио» сюда не входят.
+SELLER_PITCH = re.compile(
+    r"("
+    r"(?<![а-я])сделаю(?![а-я])|"
+    r"предлагаю услуг|"
+    r"беру в работу|"
+    r"пришлю пример|"
+    r"я это исправлю|"
+    r"(?<![а-я])делаю\s+(?:лендинг|сайт|бот|чат)|"
+    r"(?<![а-я])разрабатываю\s+|"
+    r"буду рад обсудить|"
+    r"мое портфолио|моё портфолио|"
+    r"\bportfolio\b|"
+    r"напишите\s+[\"«']?(?:хочу сайт|нужен бот)|"
+    r"(?<![а-я])ищу\s+(?:\d+\s*[–-]?\s*\d*\s+)?небольш\w+\s+проект"
+    r")",
+    re.IGNORECASE,
+)
+
+PARTNER_SEARCH = re.compile(
+    r"(?<![а-я])(?:ищу|ищем|поиск)\s+партн",
+    re.IGNORECASE,
+)
+
+SHADY_INCOME = re.compile(
+    r"(пассивн\w+\s+доход|"
+    r"достаточно смартфона|"
+    r"доход\w{0,16}\s+со смартфона|"
+    r"со смартфона.{0,40}доход|"
+    r"(?<![а-я])без опыта(?![а-я]))",
+    re.IGNORECASE,
+)
+
+_HOURS_A_DAY = re.compile(
+    r"(?:от\s+)?(\d{1,2})(?:\s*[-–]\s*(\d{1,2}))?\s*час\w*\s+(?:работы\s+)?в\s+день",
+    re.IGNORECASE,
+)
+
+_MENTION = re.compile(r"(?:https?://)?(?:t\.me/|@)([A-Za-z][A-Za-z0-9_]{3,})")
+_GETCLIENT = re.compile(r"getclient(?:_tg_bot)?", re.IGNORECASE)
+
+OFFICE_MARK = re.compile(
+    r"(в офисе\b|(?<![а-я])офис в\b|(?<![а-я])в офис\b|"
+    r"не удаленно|не удаленк|удаленн\w+\s+формат\s+не\s+рассматри|только офис)",
+    re.IGNORECASE,
+)
+REMOTE_OFFER = re.compile(
+    r"(удаленк|(?<!не )удаленно|(?<!не )удаленн\w+\s+работ|\bremote\b|можно удален)",
+    re.IGNORECASE,
+)
+REMOTE_REFUSAL = re.compile(
+    r"(не удаленно|не удаленк|удаленн\w+\s+формат\s+не\s+рассматри)",
     re.IGNORECASE,
 )
 
@@ -536,6 +596,73 @@ def is_hiring(text: str) -> bool:
     return False
 
 
+def _short_day(text: str) -> bool:
+    """«От 2 часов в день» и «2–3 часа работы в день». Круглосуточный бот не считается."""
+    for match in _HOURS_A_DAY.finditer(_plain(text)):
+        start = int(match.group(1))
+        end = int(match.group(2) or start)
+        if start <= 8 and end <= 8:
+            return True
+    return False
+
+
+def shady_income(text: str) -> bool:
+    plain = _plain(text)
+    if SHADY_INCOME.search(plain):
+        return True
+    if _short_day(plain) and re.search(r"доход|оплат|заработ|смартфон|ассистент", plain):
+        return True
+    return False
+
+
+def office_only(text: str) -> bool:
+    """Офис или прямой отказ от удалёнки. Вакансия «удалённо» остаётся."""
+    plain = _plain(text)
+    if not OFFICE_MARK.search(plain):
+        return False
+    if REMOTE_REFUSAL.search(plain):
+        return True
+    if REMOTE_OFFER.search(plain):
+        return False
+    return True
+
+
+def cheap_human_assistant(text: str) -> bool:
+    """Живой ассистент за небольшие деньги. ИИ-ассистент — это заказ, его не трогаем."""
+    plain = _plain(text)
+    if not re.search(r"(?<![а-я])ассистент", plain):
+        return False
+    if re.search(
+        r"(?:ии|ai|gpt|нейро)[-\s]?ассистент|ассистент\w{0,3}\s+(?:на базе|для)\s+(?:ии|gpt|нейро)",
+        plain,
+    ):
+        return False
+    amounts = rubles(plain)
+    if amounts and min(amounts) < 40_000:
+        return True
+    if _short_day(plain) and (not amounts or min(amounts) < 40_000):
+        return True
+    return False
+
+
+def only_getclient_contact(text: str) -> bool:
+    """Единственный контакт в тексте — бот GetClient. Живой @username рядом оставляет заявку."""
+    names = [item.group(1) for item in _MENTION.finditer(text or "")]
+    if not names or not any(_GETCLIENT.fullmatch(name) for name in names):
+        return False
+    return all(_GETCLIENT.fullmatch(name) for name in names)
+
+
+def vacancy_without_contact(text: str) -> bool:
+    """Карточка вакансии, где некому писать: ни человека, ни телефона."""
+    plain = _plain(text)
+    if _MENTION.search(plain):
+        return False
+    if re.search(r"(?:\+7|8\s?\(?9\d{2}\)?)", plain):
+        return False
+    return bool(re.search(r"без контакта|контакта нет|вакансия по тематике", plain))
+
+
 def is_offer_card(text: str) -> bool:
     """Карточка исполнителя на бирже: «сделаю / от N ₽ за», а не заказ с бюджетом."""
     plain = _plain(text).strip()
@@ -620,6 +747,18 @@ def not_my_job(text: str) -> str | None:
     text = _plain(text)
     if is_spam(text):
         return "реклама или спам"
+    if office_only(text):
+        return "офисная вакансия, не удалёнка"
+    if PARTNER_SEARCH.search(text):
+        return "ищут партнёров, а не заказ"
+    if cheap_human_assistant(text):
+        return "живой ассистент за небольшие деньги"
+    if shady_income(text):
+        return "мутный доход, набор без опыта или занятость пару часов в день"
+    if only_getclient_contact(text) or vacancy_without_contact(text):
+        return "нет контакта заказчика: только бот GetClient или пусто"
+    if SELLER_PITCH.search(text):
+        return "исполнитель рекламирует себя"
     if REVIEW_CASE.search(text) and not client_opens(text):
         return "отзыв или кейс исполнителя"
     if (SELF_PROMO_STRONG.search(text) or BUSINESS_CARD.search(text) or hashtag_wall(text)) and not client_opens(text):
