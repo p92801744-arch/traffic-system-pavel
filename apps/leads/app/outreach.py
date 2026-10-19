@@ -1,4 +1,4 @@
-"""Отклики на заявки из ящика без браузера: список новых, отметка «ответил», отправка в Telegram.
+r"""Отклики на заявки из ящика без браузера: список новых, отметка «ответил», отправка в Telegram.
 
 Запуск из apps/leads (PowerShell):
 
@@ -6,6 +6,8 @@
     .\.venv\Scripts\python.exe -m app.outreach mark-replied 123 --text-file reply.txt --via kwork
     .\.venv\Scripts\python.exe -m app.outreach send 123 --text-file reply.txt --mode auto
     .\.venv\Scripts\python.exe -m app.outreach send 123 --text-file reply.txt --dry-run
+    .\.venv\Scripts\python.exe -m app.outreach skip 123 124 --reason "исполнитель рекламирует себя"
+    .\.venv\Scripts\python.exe -m app.outreach stale --days 5
 
 Отправка идёт через ту же сессию Telethon, что и сбор. Пока работает автозапуск,
 сессию держит слушатель: команда просит у него паузу (session_gate) и возвращает сессию.
@@ -120,6 +122,79 @@ def _lead_json(row: dict) -> dict:
     }
     item["link"] = row.get("url")
     return item
+
+
+async def skip_leads(conn: aiosqlite.Connection, lead_ids: list[int], reason: str) -> dict:
+    """Прячет заявки из ленты и из list-new: статус junk, причина, строка в журнале.
+
+    Журнал пишется с ok=0, чтобы пропуск не считался отправкой и не съедал лимит.
+    """
+    reason = (reason or "").strip()
+    if not reason:
+        raise OutreachError("нужна причина: --reason")
+    ids = [int(item) for item in lead_ids]
+    if not ids:
+        raise OutreachError("укажи id заявки")
+    found: list[dict] = []
+    missing: list[int] = []
+    for lead_id in ids:
+        lead = await db.get_lead(conn, lead_id)
+        if lead:
+            found.append(lead)
+        else:
+            missing.append(lead_id)
+    if missing:
+        raise OutreachError("нет заявок: " + ", ".join(str(item) for item in missing))
+    now = _iso()
+    skipped: list[int] = []
+    for lead in found:
+        await conn.execute(
+            """
+            UPDATE leads
+            SET status = 'junk', reject_reason = ?, seen_at = COALESCE(seen_at, ?)
+            WHERE id = ?
+            """,
+            (reason, now, lead["id"]),
+        )
+        await conn.commit()
+        await _log(conn, lead, "skip", "", False, reason)
+        skipped.append(int(lead["id"]))
+    return {"skipped": skipped, "status": "junk", "reason": reason}
+
+
+async def mark_stale(conn: aiosqlite.Connection, days: int = 5) -> dict:
+    """Неотвеченные заявки старше N дней уходят из list-new со статусом stale.
+
+    Неотвеченная — статус new или take, отклик не отправлен и не отмечен.
+    Срок считается по дате сообщения, а если её нет — по дате появления в ящике.
+    """
+    if int(days) < 1:
+        raise OutreachError("число дней должно быть больше нуля")
+    cutoff = _iso(_now() - timedelta(days=int(days)))
+    now = _iso()
+    cur = await conn.execute(
+        """
+        SELECT id FROM leads
+        WHERE status IN ('new', 'take')
+          AND (outreach_state IS NULL OR outreach_state = 'error')
+          AND COALESCE(message_date, created_at) < ?
+        ORDER BY id
+        """,
+        (cutoff,),
+    )
+    ids = [int(row[0]) for row in await cur.fetchall()]
+    if ids:
+        marks = ",".join("?" for _ in ids)
+        await conn.execute(
+            f"""
+            UPDATE leads
+            SET status = 'stale', seen_at = COALESCE(seen_at, ?)
+            WHERE id IN ({marks})
+            """,
+            [now, *ids],
+        )
+        await conn.commit()
+    return {"stale": ids, "count": len(ids), "days": int(days)}
 
 
 async def list_new(
@@ -412,6 +487,13 @@ async def _main(argv: list[str] | None = None) -> int:
     p_list.add_argument("--source", default=None, help="telegram, kwork, hh, avito ...")
     p_list.add_argument("--since-hours", type=int, default=None)
 
+    p_skip = sub.add_parser("skip", help="убрать заявки в мусор: статус junk, причина, запись в журнал")
+    p_skip.add_argument("lead_id", type=int, nargs="+", help="один или несколько id")
+    p_skip.add_argument("--reason", required=True, help="почему это не заявка")
+
+    p_stale = sub.add_parser("stale", help="пометить неотвеченные заявки старше N дней, чтобы их не было в list-new")
+    p_stale.add_argument("--days", type=int, default=5)
+
     for name, help_text in (("mark-replied", "отметить, что отклик отправлен"), ("send", "отправить отклик в Telegram")):
         p = sub.add_parser(name, help=help_text)
         p.add_argument("lead_id", type=int)
@@ -430,6 +512,10 @@ async def _main(argv: list[str] | None = None) -> int:
     try:
         if args.cmd == "list-new":
             _print(await list_new(conn, limit=args.limit, min_fit=args.min_fit, source=args.source, since_hours=args.since_hours))
+        elif args.cmd == "skip":
+            _print(await skip_leads(conn, args.lead_id, args.reason))
+        elif args.cmd == "stale":
+            _print(await mark_stale(conn, args.days))
         elif args.cmd == "mark-replied":
             _print(await mark_replied(conn, args.lead_id, _read_text(args).strip(), via=args.via, message_id=args.message_id, force=args.force))
         else:

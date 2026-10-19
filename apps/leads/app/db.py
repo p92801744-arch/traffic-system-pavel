@@ -505,7 +505,7 @@ async def leads_for_purge(db: aiosqlite.Connection) -> list[dict]:
         """
         SELECT id, text, status
         FROM leads
-        WHERE status NOT IN ('take', 'contacted')
+        WHERE status NOT IN ('take', 'contacted', 'junk', 'stale')
         """
     )
     return [dict(r) for r in await cur.fetchall()]
@@ -516,7 +516,7 @@ async def leads_for_rescore(db: aiosqlite.Connection) -> list[dict]:
         """
         SELECT id, text, channel_username
         FROM leads
-        WHERE status != 'reject'
+        WHERE status NOT IN ('reject', 'junk', 'stale')
         """
     )
     return [dict(r) for r in await cur.fetchall()]

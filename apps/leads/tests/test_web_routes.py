@@ -94,6 +94,16 @@ def test_feed_honors_status_and_show_low(client):
     assert new_id
 
 
+def test_junk_and_stale_are_absent_from_the_feed(client):
+    _add(status="junk", text="СКРЫТЫЙ_МУСОР")
+    _add(status="stale", text="СТАРЫЙ_ЛИД")
+    _add(status="new", text="ЖИВАЯ_ЗАЯВКА")
+    page = client.get("/").text
+    assert "ЖИВАЯ_ЗАЯВКА" in page
+    assert "СКРЫТЫЙ_МУСОР" not in page
+    assert "СТАРЫЙ_ЛИД" not in page
+
+
 def test_missing_lead_returns_404(client):
     for url, data in (
         ("/leads/999999/status", {"status": "take"}),

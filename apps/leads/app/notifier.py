@@ -837,7 +837,8 @@ async def _day_leads() -> list[dict]:
             """
             SELECT source, channel_username, channel_title, fit, text, url
             FROM leads
-            WHERE fit >= 3 AND status != 'reject' AND COALESCE(message_date, created_at) >= ?
+            WHERE fit >= 3 AND status IN ('new', 'take', 'contacted')
+              AND COALESCE(message_date, created_at) >= ?
             ORDER BY fit DESC, id DESC
             LIMIT 15
             """,
